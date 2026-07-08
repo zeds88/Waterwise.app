@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  @apply bg-slate-200 text-slate-900 antialiased;
+}
+
+/* Hide scrollbar on carousels but keep scrolling */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Custom range slider */
+input[type='range'] {
+  @apply appearance-none h-2 rounded-full bg-slate-200 w-full cursor-pointer;
+}
+input[type='range']::-webkit-slider-thumb {
+  @apply appearance-none w-6 h-6 rounded-full bg-blue-600 shadow-md border-2 border-white cursor-pointer;
+}
+input[type='range']::-moz-range-thumb {
+  @apply w-6 h-6 rounded-full bg-blue-600 shadow-md border-2 border-white cursor-pointer;
+}
