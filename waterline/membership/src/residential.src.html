@@ -4,137 +4,7 @@
 <meta charset="utf-8">
 <title>Waterline Residential Membership</title>
 <style>
-  /* ---- Brand v3 tokens ("Every drop, by design.") ---- */
-  :root{
-    --navy:#1B3A5C; --sky:#5BC5E6; --steel:#2A5F8F; --ice:#E8F7FB; --mist:#F4FAFC;
-    --border:#A8E4F3; --gray:#6B7780; --line:#DCE3E8; --slate:#2C3E50;
-    --logo-green:#516A5B; --logo-blue:#678EA5; --logo-sage:#769D8B;
-    --serif:"Times New Roman","Liberation Serif",Times,serif;
-    --sans:Helvetica,Arial,"Liberation Sans",sans-serif;
-    --mono:"Courier New","Liberation Mono",Courier,monospace;
-  }
-  *{box-sizing:border-box;margin:0;padding:0}
-  html,body{background:#9aa5ad;font-family:var(--sans);color:var(--slate);-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  @page{size:8.5in 11in;margin:0}
-  .page{width:8.5in;height:11in;background:#fff;position:relative;overflow:hidden;margin:0 auto;page-break-after:always}
-  @media screen{.page{margin:0.3in auto;box-shadow:0 2px 12px rgba(0,0,0,.25)}}
-  .pad{padding:0 .65in}
-  .caps{letter-spacing:.14em;text-transform:uppercase}
-  .serif{font-family:var(--serif)}
-  .mono{font-family:var(--mono)}
-  .rule{height:2pt;background:var(--sky)}
-  .chk{display:inline-block;width:10px;height:10px;vertical-align:-1px;margin-right:6px;flex:none}
-  ul{list-style:none}
-  li{display:flex;align-items:flex-start;line-height:1.3}
-
-  /* ================= PAGE 1 — FRONT ================= */
-  .hdr{display:flex;justify-content:space-between;align-items:flex-end;padding:.3in .65in .13in}
-  .hdr img{width:.92in;display:block}
-  .serve{text-align:right;color:var(--gray);font-size:7.6pt;line-height:1.6}
-  .serve b{display:block;color:var(--navy);font-size:9.2pt;letter-spacing:.16em}
-  .serve .sm{font-size:7.2pt;letter-spacing:.1em}
-
-  .hero{background:var(--navy);color:#fff;padding:.24in .65in .24in;display:flex;justify-content:space-between;gap:.4in;position:relative;overflow:hidden}
-  .hero h1{font-family:var(--serif);font-weight:700;font-size:27pt;line-height:1.02;letter-spacing:-.01em}
-  .hero h1 i{color:var(--sky);font-style:italic}
-  .hero p{font-size:9.8pt;line-height:1.42;color:#D9EEF6;margin-top:.1in;max-width:4.5in}
-  .hero .stats{flex:none;border-left:1.5pt solid var(--sky);padding-left:.22in;display:flex;flex-direction:column;justify-content:center;gap:.1in;min-width:1.55in}
-  .hero .stats b{display:block;font-family:var(--serif);font-size:14.5pt;line-height:1;color:#fff}
-  .hero .stats span{display:block;font-size:6.8pt;letter-spacing:.14em;color:var(--sky);margin-top:3px}
-  .wave{position:absolute;right:-.2in;bottom:-.05in;width:3.4in;opacity:.13}
-
-  .sect{display:flex;align-items:baseline;justify-content:space-between;margin:.17in 0 .09in}
-  .sect h2{white-space:nowrap;font-family:var(--serif);font-size:15.5pt;color:var(--navy);font-weight:700;padding-bottom:3px;border-bottom:2pt solid var(--sky)}
-  .sect span{font-size:7.6pt;letter-spacing:.14em;color:var(--gray)}
-
-  .incl{background:var(--mist);border:1pt solid var(--border);border-radius:3pt;padding:.08in .14in .09in;display:grid;grid-template-columns:1.05in 1fr;gap:.14in;align-items:center}
-  .incl .lbl{font-size:7.4pt;letter-spacing:.14em;color:var(--navy);font-weight:700;line-height:1.5}
-  .incl ul{display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px .14in;font-size:7.9pt}
-
-  .plans{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.13in;margin-top:.11in;align-items:stretch}
-  .plan{background:var(--ice);border-radius:3pt;overflow:hidden;display:flex;flex-direction:column;position:relative;border:1pt solid transparent}
-  .plan .band{background:var(--steel);color:#fff;text-align:center;padding:.08in .1in .07in}
-  .plan .band b{display:block;font-size:11.5pt;letter-spacing:.06em}
-  .plan .band span{display:block;font-size:6.6pt;letter-spacing:.14em;color:#CFEFF8;margin-top:2px}
-  .plan.rec{border-color:var(--sky);box-shadow:0 0 0 1pt var(--sky)}
-  .plan.rec .band{background:var(--navy);padding-top:.16in}
-  .plan .tag{position:absolute;top:0;left:50%;transform:translateX(-50%);background:var(--sky);color:var(--navy);font-size:6.4pt;font-weight:700;letter-spacing:.14em;padding:2px 9px 2px;border-radius:0 0 3pt 3pt}
-  .plan .price{padding:.1in .14in .05in;border-bottom:1pt solid var(--border);margin:0 .12in}
-  .plan .price b{font-family:var(--serif);font-size:22pt;color:var(--navy);line-height:1;letter-spacing:-.01em}
-  .plan .price b sup{font-size:11pt;vertical-align:.55em;margin-right:1px}
-  .plan .price em{font-style:normal;font-size:8.2pt;color:var(--gray)}
-  .plan .price small{display:block;font-size:7.4pt;color:var(--steel);margin-top:3px;letter-spacing:.04em}
-  .plan ul{padding:.08in .13in .08in;font-size:7.8pt;display:flex;flex-direction:column;gap:4px}
-  .plan li b{color:var(--navy)}
-  .plan .sub{color:var(--gray);font-size:7pt;padding:0 .13in .09in;line-height:1.3;margin-top:auto}
-  .foot-note{font-size:6.7pt;color:var(--gray);margin-top:.06in;line-height:1.35}
-
-  .two{display:grid;grid-template-columns:1fr 1.2fr;gap:.2in;margin-top:.12in}
-  .two h3{font-size:7.6pt;letter-spacing:.14em;color:var(--gray);font-weight:700;margin-bottom:5px}
-  .two ul{font-size:7.8pt;display:flex;flex-direction:column;gap:2px}
-  .owner{background:var(--mist);border:1pt solid var(--border);border-radius:3pt;padding:.1in .15in .1in}
-  .owner p{font-family:var(--serif);font-style:italic;font-size:9pt;line-height:1.35;color:var(--slate)}
-  .owner .sig{margin-top:5px;font-size:7.6pt;color:var(--navy);font-weight:700;letter-spacing:.04em;font-style:normal;font-family:var(--sans)}
-  .owner .sig span{color:var(--gray);font-weight:400}
-
-  .contact{background:var(--navy);color:#fff;margin:.13in .65in 0;border-radius:3pt;padding:.1in .18in;display:grid;grid-template-columns:auto 1fr auto;gap:.22in;align-items:center}
-  .contact img{width:.72in;height:.72in;background:#fff;border-radius:2pt;padding:3px;display:block}
-  .contact .cta b{display:block;font-size:11pt;letter-spacing:.1em}
-  .contact .cta span{display:block;font-size:7.4pt;color:#CFEFF8;letter-spacing:.06em;margin-top:3px;line-height:1.5}
-  .contact .cta span i{color:var(--sky);font-style:normal;font-weight:700}
-  .contact .num{text-align:right;border-left:1pt solid rgba(255,255,255,.25);padding-left:.22in}
-  .contact .num small{display:block;font-size:7.2pt;letter-spacing:.14em;color:var(--sky)}
-  .contact .num b{display:block;font-family:var(--serif);font-size:18pt;line-height:1.1;margin-top:2px}
-  .contact .num span{display:block;font-size:7.8pt;color:#CFEFF8;margin-top:3px}
-
-  .footer{position:absolute;left:.65in;right:.65in;bottom:.26in;border-top:1pt solid var(--line);padding-top:5px;text-align:center;font-size:7.2pt;color:var(--gray)}
-  .footer i{color:var(--sky)}
-
-  /* ================= PAGE 2 — AGREEMENT ================= */
-  .p2 .hdr{align-items:flex-start;padding:.3in .65in .1in}
-  .p2 .hdr img{width:.7in}
-  .p2 .title{text-align:right}
-  .p2 .title h1{font-family:var(--serif);font-size:19pt;color:var(--navy);line-height:1}
-  .p2 .title div{font-family:var(--mono);font-size:7.8pt;color:var(--gray);line-height:1.5;margin-top:5px}
-  .p2 .cols{display:grid;grid-template-columns:1fr 1fr;gap:.3in;margin-top:.1in}
-  .p2 .lbl{font-size:7.4pt;letter-spacing:.14em;color:var(--gray);font-weight:700;margin-bottom:4px}
-  .fld{display:flex;font-size:7.8pt;color:var(--gray);gap:6px;align-items:flex-end;margin-top:5px}
-  .fld span{flex:none}
-  .fld i{flex:1;border-bottom:1pt solid var(--line);height:11px;display:block}
-  .box{display:inline-block;width:8.5px;height:8.5px;border:1pt solid var(--navy);vertical-align:-1px;margin-right:4px;border-radius:1pt}
-  .opts{display:flex;flex-wrap:wrap;gap:3px 12px;font-size:7.8pt;color:var(--slate);margin-top:5px}
-  .opts b{color:var(--navy)}
-
-  .p2 .band{background:var(--navy);color:#fff;font-weight:700;font-size:9.5pt;letter-spacing:.08em;padding:5px 10px;margin-top:.1in;display:flex;justify-content:space-between}
-  .p2 .band span{font-weight:400;font-size:7.4pt;letter-spacing:.1em;color:#CFEFF8;align-self:center}
-  table{width:100%;border-collapse:collapse;font-size:7.5pt}
-  th{background:var(--steel);color:#fff;font-size:6.9pt;letter-spacing:.1em;padding:3px 8px;text-align:center;font-weight:700}
-  th:first-child{text-align:left}
-  td{padding:2.4px 8px;border-bottom:1pt solid var(--line);text-align:center;color:var(--slate)}
-  td:first-child{text-align:left;color:var(--navy);font-weight:700}
-  tr:nth-child(even) td{background:var(--ice)}
-  td .dash{color:var(--gray)}
-  td.hi{color:var(--steel);font-weight:700}
-
-  .sched{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:5px}
-  .sched div{background:var(--ice);border-radius:2pt;padding:4px 8px;font-size:7.1pt;color:var(--slate);line-height:1.3}
-  .sched b{display:block;color:var(--navy);font-size:7.3pt}
-  .sched span{color:var(--gray)}
-
-  .terms{columns:2;column-gap:.25in;font-size:6.6pt;line-height:1.28;color:var(--slate);margin-top:5px}
-  .terms p{break-inside:avoid;margin-bottom:2.6px}
-  .terms b{color:var(--navy)}
-
-  .callout{background:var(--mist);border:1pt solid var(--border);border-radius:3pt;padding:6px 10px;margin-top:.08in;font-size:7.2pt;line-height:1.35}
-  .callout b{display:block;font-size:7.2pt;letter-spacing:.14em;color:var(--navy);margin-bottom:2px}
-  .callout i{color:var(--navy);font-weight:700;font-style:normal}
-
-  .accept{display:grid;grid-template-columns:1fr 1.5fr;gap:.3in;margin-top:.09in}
-  .accept p{font-size:7.6pt;line-height:1.4;color:var(--slate)}
-  .accept p b{color:var(--navy)}
-  .sigs{display:grid;grid-template-columns:1fr 1fr;gap:.2in}
-  .sig-line{border-bottom:1pt solid var(--navy);height:18px}
-  .sig-cap{font-size:6.8pt;color:var(--gray);margin-top:3px;letter-spacing:.06em}
+__CSS__
 </style>
 </head>
 <body>
@@ -153,7 +23,7 @@
   <div class="hero">
     <div>
       <h1>Every drop,<br><i>by design.</i></h1>
-      <p>Irrigation and drainage care for DFW homeowners who’d rather not think about it. One licensed irrigator. Seasonal visits on the calendar. No service-call fees.</p>
+      <p>Irrigation and drainage care for DFW homeowners who’d rather not think about it. One licensed irrigator. Seasonal visits on the calendar. No service-call fees. Cancel anytime.</p>
     </div>
     <div class="stats">
       <div><b>20+</b><span class="caps">Years in the field</span></div>
@@ -170,7 +40,7 @@
   <div class="pad">
     <div class="sect">
       <h2>Residential Membership Plans</h2>
-      <span class="caps">Seasonal tune-ups · $0 service-call fees</span>
+      <span class="caps">Monthly plans · Cancel anytime</span>
     </div>
 
     <div class="incl">
@@ -188,7 +58,7 @@
     <div class="plans">
       <div class="plan">
         <div class="band"><b>ESSENTIAL</b><span class="caps">Keep it running</span></div>
-        <div class="price"><b><sup>$</sup>299</b> <em>/ year</em><small>ABOUT $25 A MONTH</small></div>
+        <div class="price"><b><sup>$</sup>29</b> <em>/ month</em><small>CANCEL ANYTIME · OR $299 / YR, SAVE $49</small></div>
         <ul>
           <li>__CHK__<span><b>2 seasonal tune-ups:</b> spring startup and fall adjustment</span></li>
           <li>__CHK__<span>Every zone run and checked, run times reset for the season</span></li>
@@ -200,7 +70,7 @@
       <div class="plan rec">
         <div class="tag caps">Most popular</div>
         <div class="band"><b>RECOMMENDED</b><span class="caps">Watched all season</span></div>
-        <div class="price"><b><sup>$</sup>499</b> <em>/ year</em><small>ABOUT $42 A MONTH</small></div>
+        <div class="price"><b><sup>$</sup>49</b> <em>/ month</em><small>CANCEL ANYTIME · OR $499 / YR, SAVE $89</small></div>
         <ul>
           <li>__CHK__<span><b>4 seasonal visits:</b> spring, summer, fall, freeze prep</span></li>
           <li>__CHK__<span><b>Hydrawise remote monitoring</b> and fault alerts*</span></li>
@@ -211,7 +81,7 @@
 
       <div class="plan">
         <div class="band"><b>PREMIUM</b><span class="caps">Total property care</span></div>
-        <div class="price"><b><sup>$</sup>799</b> <em>/ year</em><small>ABOUT $67 A MONTH</small></div>
+        <div class="price"><b><sup>$</sup>79</b> <em>/ month</em><small>CANCEL ANYTIME · OR $799 / YR, SAVE $149</small></div>
         <ul>
           <li>__CHK__<span><b>Everything in Recommended</b></span></li>
           <li>__CHK__<span><b>Next-business-day response</b> on service requests</span></li>
@@ -222,7 +92,7 @@
         <div class="sub">For larger lots, drainage-sensitive foundations, and owners who want it handled.</div>
       </div>
     </div>
-    <div class="foot-note">*Requires a Hunter Hydrawise controller connected to your Wi-Fi. Upgrade with app onboarding: $260 installed. Repairs found during any visit are quoted at published flat rates less 10% and approved by you before work begins.</div>
+    <div class="foot-note">Monthly plans are month to month; cancel by text and billing stops at the end of the month. *Requires a Hunter Hydrawise controller on your Wi-Fi. Upgrade with app onboarding: $260 installed. Repairs found during any visit are quoted at published flat rates less 10% and approved by you before work begins.</div>
 
     <div class="two">
       <div>
@@ -249,7 +119,7 @@
     </div>
     <div class="num">
       <small class="caps">Call or text</small>
-      <b>(214) 606-4211</b>
+      <b>(818) 869-2142</b>
       <span>Texts get answered same day.</span>
     </div>
   </div>
@@ -263,7 +133,7 @@
     <img src="__LOGO__" alt="Waterline">
     <div class="title">
       <h1>MEMBERSHIP AGREEMENT</h1>
-      <div>WL-MBR-2026-______ &nbsp;·&nbsp; Rev. 1<br>Date: ____________________<br>Term: 12 months from start date</div>
+      <div>WL-MBR-2026-______ &nbsp;·&nbsp; Rev. 2<br>Date: ____________________<br>Month to month · Cancel anytime</div>
     </div>
   </div>
   <div class="rule"></div>
@@ -279,17 +149,19 @@
       </div>
       <div>
         <div class="lbl caps">Plan</div>
-        <div class="opts"><span><b class="box"></b><b>Essential</b> $299</span><span><b class="box"></b><b>Recommended</b> $499</span><span><b class="box"></b><b>Premium</b> $799</span></div>
+        <div class="opts"><span><b class="box"></b><b>Essential</b> $29/mo</span><span><b class="box"></b><b>Recommended</b> $49/mo</span><span><b class="box"></b><b>Premium</b> $79/mo</span></div>
+        <div class="opts"><span>Billing:</span><span><b class="box"></b>Monthly, cancel anytime</span><span><b class="box"></b>Annual ($299 / $499 / $799)</span></div>
         <div class="fld"><span>Start date</span><i></i><span>Zones</span><i></i></div>
         <div class="opts"><span>Controller:</span><span><b class="box"></b>Hydrawise</span><span><b class="box"></b>Other: ____________</span></div>
         <div class="opts"><span>Preferred contact:</span><span><b class="box"></b>Text</span><span><b class="box"></b>Call</span><span><b class="box"></b>Email</span></div>
       </div>
     </div>
 
-    <div class="band">WHAT’S INCLUDED <span class="caps">Per 12-month term</span></div>
+    <div class="band">WHAT’S INCLUDED <span class="caps">Per membership year</span></div>
     <table>
       <thead><tr><th>Benefit</th><th>Essential</th><th>Recommended</th><th>Premium</th></tr></thead>
       <tbody>
+        <tr><td>Monthly price (or annual)</td><td class="hi">$29 ($299)</td><td class="hi">$49 ($499)</td><td class="hi">$79 ($799)</td></tr>
         <tr><td>Seasonal tune-up visits</td><td>2</td><td>4</td><td>4</td></tr>
         <tr><td>Service-call fee on every visit</td><td class="hi">$0</td><td class="hi">$0</td><td class="hi">$0</td></tr>
         <tr><td>Priority scheduling and digital reports</td><td>__TCK__</td><td>__TCK__</td><td>__TCK__</td></tr>
@@ -312,8 +184,8 @@
 
     <div class="band">TERMS</div>
     <div class="terms">
-      <p><b>1. Term and renewal.</b> Membership runs 12 months from the start date. It renews for another 12 months at the then-current published rate unless either party gives notice at least 30 days before renewal. Waterline texts a reminder about 45 days out.</p>
-      <p><b>2. Payment.</b> The annual fee is due at signing by Zelle to danny@waterlinedfw.com. Membership is active when payment clears. There are no enrollment fees or per-visit charges for included visits.</p>
+      <p><b>1. Term.</b> Monthly plans run month to month from the start date and continue until cancelled. Annual plans run 12 months and renew at the then-current published rate unless either party gives notice 30 days before renewal; Waterline texts a reminder about 45 days out. A membership year is 12 months from the start date.</p>
+      <p><b>2. Payment.</b> Monthly plans are billed on the same day each month by Zelle to danny@waterlinedfw.com (set up as a recurring payment in your banking app) and are due within 5 days. Annual plans are due at signing. Membership is active when the first payment clears. No enrollment fees, no per-visit charges for included visits.</p>
       <p><b>3. Scheduling.</b> Waterline contacts the member to schedule each visit inside the seasonal windows above. Members receive scheduling priority over non-member requests. A visit missed for lack of access may be rescheduled once within the same window.</p>
       <p><b>4. Tune-up scope.</b> Run all zones; inspect heads, nozzles, arcs, and coverage; inspect valves, controller programming, and rain/freeze sensor; reset seasonal run times; walk visible drainage. Minor adjustments (head straightening, nozzle cleaning, arc and radius adjustment, program changes) are included. Replacement parts and repairs beyond adjustment are quoted at published flat rates less 10% and performed only with the member’s approval.</p>
       <p><b>5. Service calls.</b> Member-requested visits carry no service-call fee; diagnostic time is included. Repairs are quoted and approved before work. Premium members receive a response and a scheduled time by the next business day, weather and site access permitting.</p>
@@ -323,20 +195,20 @@
       <p><b>9. Warranty.</b> Waterline warrants its workmanship on member repairs for 1 year (Essential, Recommended) or 2 years (Premium). Parts carry the manufacturer’s warranty. Excluded: damage from freeze, digging, vehicles, pets, work by others, utility work, or changes to water pressure or supply.</p>
       <p><b>10. Not included.</b> Backflow or mainline replacement, controller replacement, new zones, drainage installation, sod, and landscape work are quoted separately; the member discount applies. City-required backflow testing is scheduled separately where applicable.</p>
       <p><b>11. Service area.</b> Pricing applies within 20 miles of ZIP 75039. Beyond that, a $20 travel add-on per visit applies and is noted at signing.</p>
-      <p><b>12. Cancellation.</b> The member may cancel any time in writing (a text is fine). Waterline refunds the unused portion of the annual fee prorated by month, less completed visits at $85 each and any repair credit used. Waterline may cancel for non-payment or unsafe site conditions with the same prorated refund.</p>
+      <p><b>12. Cancel anytime.</b> Cancel any time in writing (a text is fine). Monthly billing stops at the end of the current month; annual plans are refunded for unused months. If a membership ends before month 12, benefits already used are trued up at their standalone value (visits $85 each, drain flush $150, repair credit as used) less the amount paid, never more than the balance of the year. Waterline may cancel for non-payment or unsafe site conditions on the same basis.</p>
       <p><b>13. Transfer</b> (Premium). If the home is sold, the remaining term transfers to the new owner at no charge once Waterline receives the new owner’s contact details.</p>
       <p><b>14. Regulation.</b> Irrigation in Texas is regulated by the Texas Commission on Environmental Quality (TCEQ), MC-178, P.O. Box 13087, Austin, Texas 78711-3087, www.tceq.texas.gov. Work is performed by or under the supervision of Danny Mastroni, Licensed Irrigator LI0025754.</p>
     </div>
 
     <div class="callout">
       <b class="caps">How pricing works</b>
-      Every number on this page is a published flat rate. The membership fee is the full cost of the plan for the term: no enrollment fee, no per-visit charge, no automatic upsells. If a visit turns up something that needs a repair, you get the flat rate less 10% in writing, and nothing happens until you say go. <i>No surprises.</i>
+      Every number on this page is a published flat rate. The monthly fee is the full cost of the plan: no enrollment fee, no per-visit charge, no cancellation fee, no automatic upsells. If a visit turns up something that needs a repair, you get the flat rate less 10% in writing, and nothing happens until you say go. <i>No surprises.</i>
     </div>
 
     <div class="accept">
       <div>
         <div class="lbl caps">Payment</div>
-        <p>Annual fee: <b>$__________</b><br>Due at signing · Zelle: <b>danny@waterlinedfw.com</b><br>Travel add-on (if any): $______ / visit</p>
+        <p><b class="box"></b>Monthly <b>$______ / mo</b> &nbsp; <b class="box"></b>Annual <b>$________</b><br>Zelle: <b>danny@waterlinedfw.com</b> · first payment at signing<br>Travel add-on (if any): $______ / visit</p>
       </div>
       <div>
         <div class="lbl caps">Acceptance</div>
