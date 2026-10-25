@@ -32,8 +32,23 @@ export interface AiIssue {
   evidence: string
   recommendation: string
 }
+export interface TranscriptChunk {
+  start: number
+  end: number
+  text: string
+}
+export interface Transcript {
+  at: number
+  engine: 'local' | 'api'
+  model: string
+  text: string
+  chunks: TranscriptChunk[]
+}
+
 export interface AiAnalysis {
   at: number
+  /** What the speaker said that matters, and whether the visuals agree. */
+  narration?: string
   model: string
   summary: string
   caption: string
@@ -61,6 +76,7 @@ export interface Photo {
   /** Absent for legacy rows = photo. For videos, `blob` is the video and `thumb` its poster frame. */
   kind?: 'photo' | 'video'
   duration?: number
+  transcript?: Transcript
   ai?: AiAnalysis
   projectId: string
   blob: Blob
@@ -127,12 +143,22 @@ export interface AiSettings {
   model: string
 }
 
+export interface TranscriptionSettings {
+  engine: 'local' | 'api' | 'off'
+  /** Hugging Face model id for on-device Whisper */
+  localModel: string
+  endpoint: string
+  apiKey: string
+  apiModel: string
+}
+
 export interface Settings {
   companyName: string
   author: string
   priceBook: PriceBookEntry[]
   taxRate: number
   ai: AiSettings
+  transcription: TranscriptionSettings
 }
 
 export interface WalkResult {

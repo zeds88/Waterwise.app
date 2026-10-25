@@ -4,6 +4,7 @@ import { Field } from '../components/ui'
 import { exportAll, importAll } from '../lib/backup'
 import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '../lib/db'
 import { callModel } from '../lib/ai'
+import { LOCAL_MODELS } from '../lib/transcribe'
 import type { Settings } from '../lib/types'
 
 const AI_PRESETS: { label: string; ai: Pick<Settings['ai'], 'provider' | 'endpoint'> }[] = [
@@ -81,6 +82,33 @@ export default function SettingsScreen() {
           }}>{testing ? 'Testing…' : 'Test connection'}</button>
           <span className="text-xs text-slate-500">Browsers may block calls to providers without CORS support; Anthropic and local servers (set <code>OLLAMA_ORIGINS=*</code>) work.</span>
         </div>
+      </section>
+
+      <section className="card space-y-3">
+        <h2 className="font-bold">Video narration (speech-to-text)</h2>
+        <p className="text-sm text-slate-500">Turns what you say in a video into a searchable, time-stamped transcript the AI can reason over. The default runs <b>on this device</b> with Whisper – audio never leaves your phone.</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Engine">
+            <select className="input" value={s.transcription.engine} onChange={(e) => setS({ ...s, transcription: { ...s.transcription, engine: e.target.value as Settings['transcription']['engine'] } })}>
+              <option value="local">On-device Whisper (private, free)</option>
+              <option value="api">Transcription API (OpenAI-compatible)</option>
+              <option value="off">Off</option>
+            </select>
+          </Field>
+          {s.transcription.engine === 'local' && (
+            <Field label="Speech model (downloaded once, then cached)">
+              <select className="input" value={s.transcription.localModel} onChange={(e) => setS({ ...s, transcription: { ...s.transcription, localModel: e.target.value } })}>
+                {LOCAL_MODELS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+              </select>
+            </Field>
+          )}
+          {s.transcription.engine === 'api' && (<>
+            <Field label="Endpoint"><input className="input" value={s.transcription.endpoint} onChange={(e) => setS({ ...s, transcription: { ...s.transcription, endpoint: e.target.value } })} /></Field>
+            <Field label="Model"><input className="input" value={s.transcription.apiModel} onChange={(e) => setS({ ...s, transcription: { ...s.transcription, apiModel: e.target.value } })} /></Field>
+            <Field label="API key (stored only on this device)"><input className="input" type="password" autoComplete="off" value={s.transcription.apiKey} onChange={(e) => setS({ ...s, transcription: { ...s.transcription, apiKey: e.target.value } })} /></Field>
+          </>)}
+        </div>
+        <p className="text-xs text-slate-500">Using Spanish or mixed languages? Pick a <i>multilingual</i> model. English-only models are faster and more accurate for English.</p>
       </section>
 
       <section className="card space-y-3">

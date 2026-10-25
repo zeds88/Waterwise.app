@@ -66,13 +66,19 @@ export default function ProjectDetail() {
     window.alert(add.length ? `Added ${add.length} item${add.length === 1 ? '' : 's'} to “${title}”.` : 'Those items are already on the list.')
   }
 
+  const addToEstimate = async (items: Omit<import('../lib/types').LineItem, 'id'>[]) => {
+    await put('estimates', { id: uid(), projectId: id, title: 'Estimate from narration', items: items.map((i) => ({ ...i, id: uid() })), taxRate: settings.taxRate, createdAt: Date.now() })
+    reload()
+    window.alert('Estimate created – see the Estimate tab.')
+  }
+
   const analyzeAll = async () => {
     const todo = photos.filter((p) => !p.ai)
     if (!todo.length) { window.alert('Everything has already been analyzed.'); return }
     if (!window.confirm(`Send ${todo.length} item${todo.length === 1 ? '' : 's'} to your AI provider (${settings.ai.model}) for analysis?`)) return
     for (const [n, p] of todo.entries()) {
       setBusy(`AI analyzing ${n + 1} of ${todo.length}…`)
-      try { updatePhoto(await runAnalysis(p, project, settings.ai)) } catch (e) { window.alert(`Stopped at item ${n + 1}: ${(e as Error).message}`); break }
+      try { updatePhoto(await runAnalysis(p, project, settings, setBusy)) } catch (e) { window.alert(`Stopped at item ${n + 1}: ${(e as Error).message}`); break }
     }
     setBusy('')
     reload()
@@ -83,7 +89,7 @@ export default function ProjectDetail() {
     setBusy('AI is reasoning about the whole job…')
     try {
       const [fp, ch, co] = await Promise.all([listPhotos(id), listChecklists(id), listComments(id)])
-      const digest = `${localRecap(project, fp, ch, co)}\n${project.notes ? `Project notes: ${project.notes}\n` : ''}${fp.filter((p) => p.ai).map((p) => `- ${p.ai!.summary} Evidence/issues: ${p.ai!.issues.map((i) => `${i.title} [${i.severity}] ${i.evidence}`).join('; ') || 'none'}. Reasoning: ${p.ai!.reasoning}`).join('\n')}`
+      const digest = `${localRecap(project, fp, ch, co)}\n${project.notes ? `Project notes: ${project.notes}\n` : ''}${fp.filter((p) => p.transcript).map((p) => `- Video narration (${fmtDuration(p.duration)}): ${p.transcript!.text.slice(0, 1500)}`).join('\n')}\n${fp.filter((p) => p.ai).map((p) => `- ${p.ai!.summary} Evidence/issues: ${p.ai!.issues.map((i) => `${i.title} [${i.severity}] ${i.evidence}`).join('; ') || 'none'}. Reasoning: ${p.ai!.reasoning}`).join('\n')}`
       const review = await reviewProject(digest, settings.ai)
       await saveProject({ ...project, review })
       reload()
@@ -109,6 +115,7 @@ export default function ProjectDetail() {
           caption: p.caption, tags: p.tags, takenAt: p.takenAt, lat: p.lat, lng: p.lng,
           isVideo: p.kind === 'video', duration: p.kind === 'video' ? fmtDuration(p.duration) : undefined,
           ai: p.ai && { summary: p.ai.summary, issues: p.ai.issues, reasoning: p.ai.reasoning },
+          transcript: p.transcript?.chunks.length ? p.transcript.chunks.map((c) => `[${fmtDuration(c.start)}] ${c.text}`).join('\n') : p.transcript?.text,
         })),
       )
       const html = buildReportHtml({ settings, project, photos: rp, checklists, comments, estimates, review: (await get<Project>('projects', id))?.review, recap: recap || localRecap(project, fp, checklists, comments) })
@@ -287,7 +294,7 @@ export default function ProjectDetail() {
           onUpdate={updatePhoto}
           onDelete={async (p) => { await remove('photos', p.id); setViewing(null); reload() }}
           onCover={async (p) => { await saveProject({ ...project, coverPhotoId: p.id }); reload() }}
-          project={project} ai={settings.ai} onAddIssues={(items) => addToPunchList('AI findings', items)}
+          project={project} settings={settings} onAddIssues={(items) => addToPunchList('AI findings', items)} onAddEstimate={addToEstimate}
         />
       )}
       {comparing && <Modal title="Before / after" onClose={() => setComparing(null)} wide><Compare before={stillOf(comparing[0])} after={stillOf(comparing[1])} /></Modal>}

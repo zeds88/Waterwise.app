@@ -105,6 +105,7 @@ export const DEFAULT_SETTINGS: Settings = {
   author: 'Me',
   taxRate: 0,
   ai: { provider: 'openai', endpoint: '', apiKey: '', model: '' },
+  transcription: { engine: 'local', localModel: 'Xenova/whisper-tiny.en', endpoint: 'https://api.openai.com/v1/audio/transcriptions', apiKey: '', apiModel: 'whisper-1' },
   priceBook: [
     { keywords: ['sprinkler head', 'rotor head', 'spray head'], description: 'Replace sprinkler head', unit: 'ea', price: 35 },
     { keywords: ['valve'], description: 'Replace zone valve', unit: 'ea', price: 145 },
@@ -119,6 +120,6 @@ export const DEFAULT_SETTINGS: Settings = {
 
 export async function loadSettings(): Promise<Settings> {
   const row = await get<{ key: string; value: Settings }>('meta', 'settings')
-  return { ...DEFAULT_SETTINGS, ...row?.value, ai: { ...DEFAULT_SETTINGS.ai, ...row?.value?.ai } }
+  return { ...DEFAULT_SETTINGS, ...row?.value, ai: { ...DEFAULT_SETTINGS.ai, ...row?.value?.ai }, transcription: { ...DEFAULT_SETTINGS.transcription, ...row?.value?.transcription } }
 }
 export const saveSettings = (value: Settings) => put('meta', { key: 'settings', value })

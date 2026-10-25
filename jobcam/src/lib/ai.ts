@@ -13,6 +13,7 @@ const SYSTEM = `You are a senior field inspector and estimator for the trades (i
 Rules:
 - Describe only what is actually visible. If something cannot be determined from the images, say so and lower your confidence.
 - Prefer concrete, checkable evidence ("brown stains below the valve box lid") over generalities.
+- When a narration transcript is provided, treat it as the worker's description of the job: use it for context, quantities and intent, cross-check it against what is visible, and flag any disagreement. Never invent speech that is not in the transcript.
 - "reasoning" is a short, step-by-step justification (3-6 sentences) linking the evidence you saw to your conclusions.
 - Respond with a single JSON object and nothing else.`
 
@@ -24,6 +25,7 @@ const PHOTO_SCHEMA = `{
  "issues": [{"title":"", "severity":"low|medium|high", "evidence":"what you see", "recommendation":"what to do"}],
  "materials": ["materials/parts that appear needed"],
  "safety": ["safety or code concerns, if any"],
+ "narration": "only if a transcript was given: what the speaker said that matters (problems, decisions, quantities) and whether the visuals agree or disagree",
  "reasoning": "step-by-step justification",
  "confidence": "low|medium|high"
 }`
@@ -110,13 +112,13 @@ export function normalizeAnalysis(raw: Record<string, unknown>, model: string): 
   }))
   const conf = raw.confidence
   return {
-    at: Date.now(), model, summary, caption: str(raw.caption).slice(0, 120), tags: strs(raw.tags, 6),
+    at: Date.now(), model, summary, narration: str(raw.narration) || undefined, caption: str(raw.caption).slice(0, 120), tags: strs(raw.tags, 6),
     observations: strs(raw.observations), issues, materials: strs(raw.materials), safety: strs(raw.safety),
     reasoning: str(raw.reasoning), confidence: conf === 'high' || conf === 'low' ? conf : 'medium',
   }
 }
 
-export interface AnalyzeContext { projectName?: string; address?: string; caption?: string; tags?: string[]; isVideo?: boolean }
+export interface AnalyzeContext { projectName?: string; address?: string; caption?: string; tags?: string[]; isVideo?: boolean; transcript?: string }
 
 /** Analyze one photo (1 frame) or one video (several timestamped frames). */
 export async function analyzeMedia(frames: Frame[], ctx: AnalyzeContext, ai: AiSettings, fetcher: typeof fetch = fetch): Promise<AiAnalysis> {
@@ -128,6 +130,7 @@ export async function analyzeMedia(frames: Frame[], ctx: AnalyzeContext, ai: AiS
     parts.push({ type: 'image', dataUrl: f.dataUrl })
   })
   const known = [ctx.projectName && `Project: ${ctx.projectName}`, ctx.address && `Address: ${ctx.address}`, ctx.caption && `User caption: ${ctx.caption}`, ctx.tags?.length && `User tags: ${ctx.tags.join(', ')}`].filter(Boolean).join('\n')
+  if (ctx.transcript) parts.push({ type: 'text', text: `Narration transcript of the video's audio (speaker's own words, with timestamps; speech-to-text can contain errors):\n${ctx.transcript}` })
   parts.push({ type: 'text', text: `${ctx.isVideo ? 'These are frames sampled in order from one video walkthrough.' : 'This is a single job-site photo.'}\n${known}\n\nAnalyze it. Return JSON exactly in this shape:\n${PHOTO_SCHEMA}` })
   return normalizeAnalysis(extractJson(await callModel(parts, ai, fetcher)), ai.model)
 }

@@ -2,29 +2,40 @@ import { ListPlus, Loader2, Sparkles, Tags, Type } from 'lucide-react'
 import { useState } from 'react'
 import { analyzeMedia } from '../lib/ai'
 import { toModelDataUrl } from '../lib/image'
+import { formatTranscript, transcribeVideo } from '../lib/transcribe'
 import { sampleFrames } from '../lib/video'
-import type { AiSettings, Photo, Project, Severity } from '../lib/types'
+import type { AiSettings, Photo, Project, Settings, Severity } from '../lib/types'
 
 const SEV: Record<Severity, string> = {
   high: 'bg-red-600 text-white', medium: 'bg-amber-500 text-black', low: 'bg-slate-400 text-black',
 }
 
 /** Run + show the AI's analysis of one photo or video, with one-tap "apply" actions. */
-export async function runAnalysis(photo: Photo, project: Pick<Project, 'name' | 'address'> | undefined, ai: AiSettings): Promise<Photo> {
+export async function runAnalysis(photo: Photo, project: Pick<Project, 'name' | 'address'> | undefined, settings: Pick<Settings, 'ai' | 'transcription'>, onStatus?: (m: string) => void): Promise<Photo> {
+  const { ai, transcription } = settings
+  let transcript = photo.transcript
+  let note = ''
+  if (photo.kind === 'video' && !transcript && transcription.engine !== 'off') {
+    try { transcript = await transcribeVideo(photo.blob, transcription, onStatus) } catch (e) { note = (e as Error).message } // silent / no-audio videos still get a visual analysis
+  }
+  onStatus?.('Analyzing with AI…')
   const frames = photo.kind === 'video'
     ? await sampleFrames(photo.blob)
     : [{ dataUrl: await toModelDataUrl(photo.blob), label: undefined }]
-  const analysis = await analyzeMedia(frames, { projectName: project?.name, address: project?.address, caption: photo.caption, tags: photo.tags, isVideo: photo.kind === 'video' }, ai)
-  return { ...photo, ai: analysis }
+  const analysis = await analyzeMedia(frames, { projectName: project?.name, address: project?.address, caption: photo.caption, tags: photo.tags, isVideo: photo.kind === 'video', transcript: transcript ? formatTranscript(transcript) : undefined }, ai)
+  void note
+  return { ...photo, transcript, ai: analysis }
 }
 
-export default function AiPanel({ photo, project, ai, onUpdate, onAddIssues }: {
+export default function AiPanel({ photo, project, settings, onUpdate, onAddIssues }: {
   photo: Photo
   project?: Project
-  ai: AiSettings
+  settings: Pick<Settings, 'ai' | 'transcription'>
   onUpdate: (p: Photo) => void
   onAddIssues: (items: string[]) => void
 }) {
+  const ai: AiSettings = settings.ai
+  const [status, setStatus] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const a = photo.ai
@@ -32,7 +43,7 @@ export default function AiPanel({ photo, project, ai, onUpdate, onAddIssues }: {
 
   const run = async () => {
     setBusy(true); setError('')
-    try { onUpdate(await runAnalysis(photo, project, ai)) } catch (e) { setError((e as Error).message) } finally { setBusy(false) }
+    try { onUpdate(await runAnalysis(photo, project, settings, setStatus)) } catch (e) { setError((e as Error).message) } finally { setBusy(false) }
   }
 
   return (
@@ -41,7 +52,7 @@ export default function AiPanel({ photo, project, ai, onUpdate, onAddIssues }: {
         <h3 className="flex items-center gap-1.5 font-bold text-purple-800 dark:text-purple-300"><Sparkles size={16} /> AI analysis</h3>
         <span className="flex-1" />
         <button className="btn !py-1.5" disabled={busy || !configured} onClick={run}>
-          {busy ? <><Loader2 size={16} className="animate-spin" /> Analyzing…</> : a ? 'Re-analyze' : 'Analyze'}
+          {busy ? <><Loader2 size={16} className="animate-spin" /> {status || 'Analyzing…'}</> : a ? 'Re-analyze' : 'Analyze'}
         </button>
       </div>
       {!configured && <p className="text-sm text-slate-600 dark:text-slate-300">Add your AI provider in <b>Settings</b> to analyze {photo.kind === 'video' ? 'videos (sampled frames)' : 'photos'}. This photo is only sent when you click Analyze.</p>}
@@ -62,6 +73,7 @@ export default function AiPanel({ photo, project, ai, onUpdate, onAddIssues }: {
               ))}
             </ul>
           )}
+          {a.narration && <p className="rounded-lg bg-white p-2 dark:bg-slate-900"><b>🎙 Narration:</b> {a.narration}</p>}
           {a.observations.length > 0 && <ul className="list-inside list-disc text-slate-700 dark:text-slate-300">{a.observations.map((o, n) => <li key={n}>{o}</li>)}</ul>}
           {a.materials.length > 0 && <p><b>Materials:</b> {a.materials.join(', ')}</p>}
           {a.safety.length > 0 && <p className="text-red-700 dark:text-red-400"><b>Safety:</b> {a.safety.join('; ')}</p>}

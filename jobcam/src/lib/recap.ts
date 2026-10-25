@@ -26,6 +26,8 @@ export function localRecap(project: Project, photos: Photo[], checklists: Checkl
   }
   const captions = photos.filter((p) => p.caption).slice(0, 5).map((p) => p.caption)
   if (captions.length) lines.push('Photo notes: ' + captions.join(' | '))
+  const spoken = photos.filter((p) => p.transcript).slice(0, 3).map((p) => p.transcript!.text.slice(0, 300))
+  if (spoken.length) lines.push('Video narration: ' + spoken.join(' | '))
   const findings = photos.filter((p) => p.ai).slice(0, 8).map((p) => `${p.ai!.summary}${p.ai!.issues.length ? ` Issues: ${p.ai!.issues.map((i) => `${i.title} (${i.severity})`).join(', ')}.` : ''}`)
   if (findings.length) lines.push('AI photo findings: ' + findings.join(' | '))
   const last = comments.slice(-3).map((c) => `${c.author}: ${c.text}`)

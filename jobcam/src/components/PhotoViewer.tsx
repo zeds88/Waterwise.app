@@ -1,8 +1,9 @@
 import { ChevronLeft, ChevronRight, MapPin, PencilLine, Star, Trash2, Mic } from 'lucide-react'
 import { useObjectUrl } from '../lib/hooks'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useDictation } from '../lib/hooks'
-import type { AiSettings, Photo, Project, Shape } from '../lib/types'
+import type { LineItem, Photo, Project, Settings, Shape } from '../lib/types'
+import NarrationPanel from './NarrationPanel'
 import AiPanel from './AiPanel'
 import Annotator from './Annotator'
 import { Img, Modal, TagPicker } from './ui'
@@ -18,13 +19,15 @@ interface Props {
   onDelete: (p: Photo) => void
   onCover: (p: Photo) => void
   project: Project
-  ai: AiSettings
+  settings: Settings
   onAddIssues: (items: string[]) => void
+  onAddEstimate: (items: Omit<LineItem, 'id'>[]) => void
 }
 
-export default function PhotoViewer({ photo, index, total, isCover, onClose, onNav, onUpdate, onDelete, onCover, project, ai, onAddIssues }: Props) {
+export default function PhotoViewer({ photo, index, total, isCover, onClose, onNav, onUpdate, onDelete, onCover, project, settings, onAddIssues, onAddEstimate }: Props) {
   const videoUrl = useObjectUrl(photo.kind === 'video' ? photo.blob : undefined)
   const isVideo = photo.kind === 'video'
+  const videoEl = useRef<HTMLVideoElement>(null)
   const [marking, setMarking] = useState(false)
   const dict = useDictation((t) => onUpdate({ ...photo, caption: photo.caption ? `${photo.caption} ${t}` : t }))
 
@@ -36,7 +39,7 @@ export default function PhotoViewer({ photo, index, total, isCover, onClose, onN
         ) : (
           <div className="relative overflow-hidden rounded-xl bg-black">
             {isVideo
-              ? <video key={photo.id} src={videoUrl} controls playsInline poster={undefined} className="mx-auto max-h-[58vh] w-full bg-black" aria-label="Video player" />
+              ? <video ref={videoEl} key={photo.id} src={videoUrl} controls playsInline poster={undefined} className="mx-auto max-h-[58vh] w-full bg-black" aria-label="Video player" />
               : <Img blob={photo.blob} className="mx-auto max-h-[58vh] w-auto object-contain" alt={photo.caption || 'Job photo'} />}
             {photo.annotations.length > 0 && <span className="absolute left-2 top-2 rounded bg-blue-600 px-2 py-0.5 text-xs font-bold text-white">Marked up</span>}
             <button className="absolute left-1 top-1/2 rounded-full bg-black/50 p-2 text-white disabled:opacity-30" disabled={index === 0} onClick={() => onNav(-1)} aria-label="Previous"><ChevronLeft /></button>
@@ -65,7 +68,8 @@ export default function PhotoViewer({ photo, index, total, isCover, onClose, onN
           {dict.interim && <p className="text-xs italic text-slate-500">…{dict.interim}</p>}
         </div>
 
-        <AiPanel key={photo.id} photo={photo} project={project} ai={ai} onUpdate={onUpdate} onAddIssues={onAddIssues} />
+        {isVideo && <NarrationPanel key={`n-${photo.id}`} photo={photo} settings={settings} onUpdate={onUpdate} onSeek={(t) => { if (videoEl.current) { videoEl.current.currentTime = t; void videoEl.current.play() } }} onAddIssues={onAddIssues} onAddEstimate={onAddEstimate} />}
+        <AiPanel key={photo.id} photo={photo} project={project} settings={settings} onUpdate={onUpdate} onAddIssues={onAddIssues} />
 
         <div>
           <span className="label">Tags</span>

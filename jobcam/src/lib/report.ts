@@ -14,6 +14,7 @@ export interface ReportPhoto {
   isVideo?: boolean
   duration?: string
   ai?: Pick<AiAnalysis, 'summary' | 'issues' | 'reasoning'>
+  transcript?: string
 }
 
 export interface ReportInput {
@@ -37,7 +38,7 @@ export function buildReportHtml(r: ReportInput): string {
         ph.lat !== undefined && ph.lng !== undefined ? ` · ${ph.lat.toFixed(5)}, ${ph.lng.toFixed(5)}` : ''
       }${ph.tags.length ? `<br>${ph.tags.map((t) => `<span class="tag">${esc(t)}</span>`).join(' ')}` : ''}${
         ph.ai ? `<div class="ai"><b>AI:</b> ${esc(ph.ai.summary)}${ph.ai.issues.map((i) => `<br>• <b>${esc(i.title)}</b> (${esc(i.severity)}) – ${esc(i.recommendation)}`).join('')}</div>` : ''
-      }</figcaption></figure>`,
+      }${ph.transcript ? `<details><summary>Narration transcript</summary><div class="ai" style="white-space:pre-wrap">${esc(ph.transcript)}</div></details>` : ''}</figcaption></figure>`,
     )
     .join('\n')
 
