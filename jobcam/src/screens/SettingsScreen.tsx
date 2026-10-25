@@ -3,12 +3,21 @@ import { useEffect, useRef, useState } from 'react'
 import { Field } from '../components/ui'
 import { exportAll, importAll } from '../lib/backup'
 import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '../lib/db'
+import { callModel } from '../lib/ai'
 import type { Settings } from '../lib/types'
+
+const AI_PRESETS: { label: string; ai: Pick<Settings['ai'], 'provider' | 'endpoint'> }[] = [
+  { label: 'Claude', ai: { provider: 'anthropic', endpoint: '' } },
+  { label: 'OpenAI', ai: { provider: 'openai', endpoint: 'https://api.openai.com/v1/chat/completions' } },
+  { label: 'Ollama (local)', ai: { provider: 'openai', endpoint: 'http://localhost:11434/v1/chat/completions' } },
+  { label: 'LM Studio (local)', ai: { provider: 'openai', endpoint: 'http://localhost:1234/v1/chat/completions' } },
+]
 
 export default function SettingsScreen() {
   const [s, setS] = useState<Settings>(DEFAULT_SETTINGS)
   const [loaded, setLoaded] = useState(false)
   const [msg, setMsg] = useState('')
+  const [testing, setTesting] = useState(false)
   const file = useRef<HTMLInputElement>(null)
 
   useEffect(() => { loadSettings().then((x) => { setS(x); setLoaded(true) }) }, [])
@@ -45,12 +54,32 @@ export default function SettingsScreen() {
       </section>
 
       <section className="card space-y-3">
-        <h2 className="font-bold">Optional AI polish</h2>
-        <p className="text-sm text-slate-500">Bring your own OpenAI-compatible endpoint (OpenAI, a local Ollama/LM Studio server, etc.). Only the text recap is sent – never photos. Leave blank to stay 100% offline.</p>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Field label="Endpoint URL"><input className="input" placeholder="http://localhost:11434/v1/chat/completions" value={s.ai.endpoint} onChange={(e) => setS({ ...s, ai: { ...s.ai, endpoint: e.target.value } })} /></Field>
-          <Field label="Model"><input className="input" value={s.ai.model} onChange={(e) => setS({ ...s, ai: { ...s.ai, model: e.target.value } })} /></Field>
-          <Field label="API key"><input className="input" type="password" autoComplete="off" value={s.ai.apiKey} onChange={(e) => setS({ ...s, ai: { ...s.ai, apiKey: e.target.value } })} /></Field>
+        <h2 className="font-bold">AI analysis &amp; reasoning</h2>
+        <p className="text-sm text-slate-500">
+          Bring your own model. Photos (and sampled video frames) are sent to the provider <b>only when you press Analyze</b>, straight from your browser – never through us.
+          Leave blank to stay fully offline. For a private setup use a local vision model (e.g. Ollama <code>llava</code> / <code>qwen2.5vl</code>).
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {AI_PRESETS.map((p) => (
+            <button key={p.label} className={`chip ${s.ai.provider === p.ai.provider && s.ai.endpoint === p.ai.endpoint ? 'chip-on' : ''}`} onClick={() => setS({ ...s, ai: { ...s.ai, ...p.ai } })}>{p.label}</button>
+          ))}
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Provider type">
+            <select className="input" value={s.ai.provider} onChange={(e) => setS({ ...s, ai: { ...s.ai, provider: e.target.value as Settings['ai']['provider'] } })}>
+              <option value="anthropic">Anthropic (Claude)</option><option value="openai">OpenAI-compatible</option>
+            </select>
+          </Field>
+          <Field label="Model (must support images)"><input className="input" placeholder={s.ai.provider === 'anthropic' ? 'claude-sonnet-5-5' : 'gpt-4o, llava, …'} value={s.ai.model} onChange={(e) => setS({ ...s, ai: { ...s.ai, model: e.target.value } })} /></Field>
+          <Field label={s.ai.provider === 'anthropic' ? 'Endpoint (blank = Anthropic API)' : 'Endpoint URL'}><input className="input" placeholder={s.ai.provider === 'anthropic' ? 'https://api.anthropic.com/v1/messages' : 'https://api.openai.com/v1/chat/completions'} value={s.ai.endpoint} onChange={(e) => setS({ ...s, ai: { ...s.ai, endpoint: e.target.value } })} /></Field>
+          <Field label="API key (stored only on this device)"><input className="input" type="password" autoComplete="off" value={s.ai.apiKey} onChange={(e) => setS({ ...s, ai: { ...s.ai, apiKey: e.target.value } })} /></Field>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button className="btn" disabled={testing} onClick={async () => {
+            setTesting(true)
+            try { await callModel([{ type: 'text', text: 'Reply with the single word: ok' }], s.ai, fetch, 20); flash('Connection works ✓') } catch (e) { flash((e as Error).message) } finally { setTesting(false) }
+          }}>{testing ? 'Testing…' : 'Test connection'}</button>
+          <span className="text-xs text-slate-500">Browsers may block calls to providers without CORS support; Anthropic and local servers (set <code>OLLAMA_ORIGINS=*</code>) work.</span>
         </div>
       </section>
 
@@ -73,7 +102,7 @@ export default function SettingsScreen() {
             try { const c = await importAll(await f.text()); flash(`Imported ${c.projects} projects, ${c.photos} photos`) } catch (err) { flash((err as Error).message) }
           }} />
         </div>
-        {msg && <p className="text-sm font-semibold text-green-600" role="status">{msg}</p>}
+        {msg && <p className={`text-sm font-semibold ${/fail|error|set |choose|no text|not /i.test(msg) ? 'text-red-600' : 'text-green-600'}`} role="status">{msg}</p>}
       </section>
     </div>
   )

@@ -1,4 +1,4 @@
-import type { Checklist, Comment, Estimate, Project, Settings } from './types'
+import type { AiAnalysis, Checklist, Comment, Estimate, Project, ProjectReview, Settings } from './types'
 import { money, totals } from './estimate'
 
 export const esc = (s: string): string =>
@@ -11,6 +11,9 @@ export interface ReportPhoto {
   takenAt: number
   lat?: number
   lng?: number
+  isVideo?: boolean
+  duration?: string
+  ai?: Pick<AiAnalysis, 'summary' | 'issues' | 'reasoning'>
 }
 
 export interface ReportInput {
@@ -21,6 +24,7 @@ export interface ReportInput {
   comments: Comment[]
   estimates: Estimate[]
   recap?: string
+  review?: ProjectReview
 }
 
 /** Self-contained HTML: open it, print it to PDF, or email it. No server needed. */
@@ -29,9 +33,11 @@ export function buildReportHtml(r: ReportInput): string {
   const photoHtml = r.photos
     .map(
       (ph) => `<figure><img src="${ph.src}" alt="${esc(ph.caption || 'Job photo')}">
-<figcaption>${ph.caption ? `<b>${esc(ph.caption)}</b><br>` : ''}${esc(new Date(ph.takenAt).toLocaleString())}${
+<figcaption>${ph.isVideo ? `<span class="tag">▶ Video ${esc(ph.duration ?? '')}</span><br>` : ''}${ph.caption ? `<b>${esc(ph.caption)}</b><br>` : ''}${esc(new Date(ph.takenAt).toLocaleString())}${
         ph.lat !== undefined && ph.lng !== undefined ? ` · ${ph.lat.toFixed(5)}, ${ph.lng.toFixed(5)}` : ''
-      }${ph.tags.length ? `<br>${ph.tags.map((t) => `<span class="tag">${esc(t)}</span>`).join(' ')}` : ''}</figcaption></figure>`,
+      }${ph.tags.length ? `<br>${ph.tags.map((t) => `<span class="tag">${esc(t)}</span>`).join(' ')}` : ''}${
+        ph.ai ? `<div class="ai"><b>AI:</b> ${esc(ph.ai.summary)}${ph.ai.issues.map((i) => `<br>• <b>${esc(i.title)}</b> (${esc(i.severity)}) – ${esc(i.recommendation)}`).join('')}</div>` : ''
+      }</figcaption></figure>`,
     )
     .join('\n')
 
@@ -69,13 +75,14 @@ figure{margin:0;break-inside:avoid}img{width:100%;border-radius:8px;display:bloc
 figcaption{font-size:12px;color:#475569;margin-top:4px}.tag{background:#e0f2fe;color:#075985;border-radius:99px;padding:1px 8px;font-size:11px}
 table{width:100%;border-collapse:collapse}td,th{border-bottom:1px solid #e2e8f0;padding:6px;text-align:left}
 ul.check{list-style:none;padding:0}li.done{color:#64748b;text-decoration:line-through}
-.recap{background:#f1f5f9;border-radius:8px;padding:12px;white-space:pre-wrap}
+.ai{margin-top:6px;background:#faf5ff;border-left:3px solid #a855f7;padding:4px 8px;border-radius:4px;color:#3b0764}.recap{background:#f1f5f9;border-radius:8px;padding:12px;white-space:pre-wrap}
 @media print{body{padding:0}h2{break-after:avoid}}
 </style></head><body>
 <p class="meta">${esc(r.settings.companyName)} · Job report · ${esc(new Date().toLocaleDateString())}</p>
 <h1>${esc(p.name || 'Untitled project')}</h1>
 <p class="meta">${[p.address, p.customer, p.phone, p.email].filter(Boolean).map(esc).join(' · ')}</p>
 ${r.recap ? `<h2>Summary</h2><div class="recap">${esc(r.recap)}</div>` : ''}
+${r.review ? `<h2>AI job review</h2><div class="recap">${esc(r.review.summary)}${r.review.progress ? `\n\nProgress: ${esc(r.review.progress)}` : ''}</div>${r.review.risks.length ? `<h3>Risks</h3><ul>${r.review.risks.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}${r.review.nextSteps.length ? `<h3>Next steps</h3><ol>${r.review.nextSteps.map((x) => `<li>${esc(x)}</li>`).join('')}</ol>` : ''}<details><summary>How the AI reasoned</summary><p>${esc(r.review.reasoning)}</p></details>` : ''}
 ${p.notes ? `<h2>Notes</h2><p>${esc(p.notes).replace(/\n/g, '<br>')}</p>` : ''}
 ${r.photos.length ? `<h2>Photos (${r.photos.length})</h2><div class="grid">${photoHtml}</div>` : ''}
 ${r.checklists.length ? `<h2>Checklists</h2>${checklistHtml}` : ''}

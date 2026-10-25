@@ -52,3 +52,15 @@ export function getPosition(): Promise<GeolocationPosition | null> {
     navigator.geolocation.getCurrentPosition(res, () => res(null), { enableHighAccuracy: true, timeout: 6000, maximumAge: 30000 }),
   )
 }
+
+/** Downscaled JPEG data URL of the *unmarked* image, sized for vision models. */
+export async function toModelDataUrl(blob: Blob, edge = 1280): Promise<string> {
+  const bitmap = await createImageBitmap(blob)
+  const [w, h] = fit(bitmap.width, bitmap.height, edge)
+  const c = document.createElement('canvas')
+  c.width = w
+  c.height = h
+  c.getContext('2d')!.drawImage(bitmap, 0, 0, w, h)
+  bitmap.close()
+  return c.toDataURL('image/jpeg', 0.8)
+}

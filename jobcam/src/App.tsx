@@ -26,7 +26,7 @@ export default function App() {
               <Icon size={18} /> {label}
             </NavLink>
           ))}
-          <p className="mt-auto px-2 text-xs text-slate-500">Free &amp; open source.<br />Your photos never leave this device.</p>
+          <p className="mt-auto px-2 text-xs text-slate-500">Free &amp; open source.<br />Stored on this device. AI only runs when you ask.</p>
         </aside>
         <main className="mx-auto max-w-5xl p-4 pb-28 md:pb-8">
           <Routes>

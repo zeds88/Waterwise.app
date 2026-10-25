@@ -1,7 +1,9 @@
 import { ChevronLeft, ChevronRight, MapPin, PencilLine, Star, Trash2, Mic } from 'lucide-react'
+import { useObjectUrl } from '../lib/hooks'
 import { useState } from 'react'
 import { useDictation } from '../lib/hooks'
-import type { Photo, Shape } from '../lib/types'
+import type { AiSettings, Photo, Project, Shape } from '../lib/types'
+import AiPanel from './AiPanel'
 import Annotator from './Annotator'
 import { Img, Modal, TagPicker } from './ui'
 
@@ -15,20 +17,27 @@ interface Props {
   onUpdate: (p: Photo) => void
   onDelete: (p: Photo) => void
   onCover: (p: Photo) => void
+  project: Project
+  ai: AiSettings
+  onAddIssues: (items: string[]) => void
 }
 
-export default function PhotoViewer({ photo, index, total, isCover, onClose, onNav, onUpdate, onDelete, onCover }: Props) {
+export default function PhotoViewer({ photo, index, total, isCover, onClose, onNav, onUpdate, onDelete, onCover, project, ai, onAddIssues }: Props) {
+  const videoUrl = useObjectUrl(photo.kind === 'video' ? photo.blob : undefined)
+  const isVideo = photo.kind === 'video'
   const [marking, setMarking] = useState(false)
   const dict = useDictation((t) => onUpdate({ ...photo, caption: photo.caption ? `${photo.caption} ${t}` : t }))
 
   return (
-    <Modal title={`Photo ${index + 1} of ${total}`} onClose={onClose} wide>
+    <Modal title={`${isVideo ? 'Video' : 'Photo'} ${index + 1} of ${total}`} onClose={onClose} wide>
       <div className="space-y-4">
-        {marking ? (
+        {marking && !isVideo ? (
           <Annotator key={photo.id} photo={photo} onChange={(annotations: Shape[]) => onUpdate({ ...photo, annotations })} />
         ) : (
           <div className="relative overflow-hidden rounded-xl bg-black">
-            <Img blob={photo.blob} className="mx-auto max-h-[58vh] w-auto object-contain" alt={photo.caption || 'Job photo'} />
+            {isVideo
+              ? <video key={photo.id} src={videoUrl} controls playsInline poster={undefined} className="mx-auto max-h-[58vh] w-full bg-black" aria-label="Video player" />
+              : <Img blob={photo.blob} className="mx-auto max-h-[58vh] w-auto object-contain" alt={photo.caption || 'Job photo'} />}
             {photo.annotations.length > 0 && <span className="absolute left-2 top-2 rounded bg-blue-600 px-2 py-0.5 text-xs font-bold text-white">Marked up</span>}
             <button className="absolute left-1 top-1/2 rounded-full bg-black/50 p-2 text-white disabled:opacity-30" disabled={index === 0} onClick={() => onNav(-1)} aria-label="Previous"><ChevronLeft /></button>
             <button className="absolute right-1 top-1/2 rounded-full bg-black/50 p-2 text-white disabled:opacity-30" disabled={index === total - 1} onClick={() => onNav(1)} aria-label="Next"><ChevronRight /></button>
@@ -36,7 +45,7 @@ export default function PhotoViewer({ photo, index, total, isCover, onClose, onN
         )}
 
         <div className="flex flex-wrap gap-2">
-          <button className={`btn ${marking ? 'btn-primary' : ''}`} onClick={() => setMarking((m) => !m)}><PencilLine size={18} /> {marking ? 'Done marking' : 'Mark up'}</button>
+          {!isVideo && <button className={`btn ${marking ? 'btn-primary' : ''}`} onClick={() => setMarking((m) => !m)}><PencilLine size={18} /> {marking ? 'Done marking' : 'Mark up'}</button>}
           <button className="btn" onClick={() => onCover(photo)} disabled={isCover}><Star size={18} /> {isCover ? 'Cover photo' : 'Set as cover'}</button>
           {photo.lat !== undefined && (
             <a className="btn" target="_blank" rel="noreferrer" href={`https://www.openstreetmap.org/?mlat=${photo.lat}&mlon=${photo.lng}#map=18/${photo.lat}/${photo.lng}`}><MapPin size={18} /> Map</a>
@@ -55,6 +64,8 @@ export default function PhotoViewer({ photo, index, total, isCover, onClose, onN
           </div>
           {dict.interim && <p className="text-xs italic text-slate-500">…{dict.interim}</p>}
         </div>
+
+        <AiPanel key={photo.id} photo={photo} project={project} ai={ai} onUpdate={onUpdate} onAddIssues={onAddIssues} />
 
         <div>
           <span className="label">Tags</span>

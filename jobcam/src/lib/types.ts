@@ -10,6 +10,7 @@ export interface Project {
   status: ProjectStatus
   notes: string
   coverPhotoId?: string
+  review?: ProjectReview
   createdAt: number
   updatedAt: number
 }
@@ -24,8 +25,43 @@ export interface Shape {
   text?: string
 }
 
+export type Severity = 'low' | 'medium' | 'high'
+export interface AiIssue {
+  title: string
+  severity: Severity
+  evidence: string
+  recommendation: string
+}
+export interface AiAnalysis {
+  at: number
+  model: string
+  summary: string
+  caption: string
+  tags: string[]
+  observations: string[]
+  issues: AiIssue[]
+  materials: string[]
+  safety: string[]
+  reasoning: string
+  confidence: 'low' | 'medium' | 'high'
+}
+export interface ProjectReview {
+  at: number
+  model: string
+  summary: string
+  progress: string
+  risks: string[]
+  nextSteps: string[]
+  suggestedItems: { description: string; qty: number; unit: string }[]
+  reasoning: string
+}
+
 export interface Photo {
   id: string
+  /** Absent for legacy rows = photo. For videos, `blob` is the video and `thumb` its poster frame. */
+  kind?: 'photo' | 'video'
+  duration?: number
+  ai?: AiAnalysis
   projectId: string
   blob: Blob
   thumb: Blob
@@ -84,12 +120,19 @@ export interface PriceBookEntry {
   price: number
 }
 
+export interface AiSettings {
+  provider: 'openai' | 'anthropic'
+  endpoint: string
+  apiKey: string
+  model: string
+}
+
 export interface Settings {
   companyName: string
   author: string
   priceBook: PriceBookEntry[]
   taxRate: number
-  ai: { endpoint: string; apiKey: string; model: string }
+  ai: AiSettings
 }
 
 export interface WalkResult {

@@ -1,3 +1,4 @@
+import { callModel } from './ai'
 import type { Checklist, Comment, Photo, Project, Settings } from './types'
 
 /** Plain-text digest of a project. This is also the only text ever sent to an optional LLM. */
@@ -25,28 +26,15 @@ export function localRecap(project: Project, photos: Photo[], checklists: Checkl
   }
   const captions = photos.filter((p) => p.caption).slice(0, 5).map((p) => p.caption)
   if (captions.length) lines.push('Photo notes: ' + captions.join(' | '))
+  const findings = photos.filter((p) => p.ai).slice(0, 8).map((p) => `${p.ai!.summary}${p.ai!.issues.length ? ` Issues: ${p.ai!.issues.map((i) => `${i.title} (${i.severity})`).join(', ')}.` : ''}`)
+  if (findings.length) lines.push('AI photo findings: ' + findings.join(' | '))
   const last = comments.slice(-3).map((c) => `${c.author}: ${c.text}`)
   if (last.length) lines.push('Latest comments: ' + last.join(' | '))
   return lines.join('\n')
 }
 
-/** Optional: summarise the text digest with any OpenAI-compatible endpoint the user configures. */
+/** Optional: plain-language customer update from the text digest, via the configured model. */
 export async function aiRecap(digest: string, ai: Settings['ai'], fetcher: typeof fetch = fetch): Promise<string> {
-  if (!ai.endpoint || !ai.model) throw new Error('Set an AI endpoint and model in Settings first.')
-  const res = await fetcher(ai.endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(ai.apiKey ? { Authorization: `Bearer ${ai.apiKey}` } : {}) },
-    body: JSON.stringify({
-      model: ai.model,
-      messages: [
-        { role: 'system', content: 'You write short, plain progress updates for a customer about a field job. 3-4 sentences, no markdown.' },
-        { role: 'user', content: digest },
-      ],
-    }),
-  })
-  if (!res.ok) throw new Error(`AI request failed (${res.status})`)
-  const data = await res.json()
-  const text = data?.choices?.[0]?.message?.content
-  if (typeof text !== 'string' || !text.trim()) throw new Error('AI returned no text')
-  return text.trim()
+  const text = await callModel([{ type: 'text', text: `Write a short customer-facing progress update (3-4 sentences, no markdown) from these job notes:\n\n${digest}` }], ai, fetcher, 400)
+  return text
 }

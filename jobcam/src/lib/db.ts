@@ -104,7 +104,7 @@ export const DEFAULT_SETTINGS: Settings = {
   companyName: 'My Company',
   author: 'Me',
   taxRate: 0,
-  ai: { endpoint: '', apiKey: '', model: '' },
+  ai: { provider: 'openai', endpoint: '', apiKey: '', model: '' },
   priceBook: [
     { keywords: ['sprinkler head', 'rotor head', 'spray head'], description: 'Replace sprinkler head', unit: 'ea', price: 35 },
     { keywords: ['valve'], description: 'Replace zone valve', unit: 'ea', price: 145 },

@@ -17,6 +17,7 @@ const page = await ctx.newPage()
 const errors = []
 page.on('pageerror', (e) => errors.push(e.message))
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+page.on('dialog', (d) => d.accept())
 const shot = (n) => page.screenshot({ path: `${process.env.SHOTS ?? '/tmp'}/jobcam-${n}.png` })
 const url = `http://localhost:${PORT}/`
 
@@ -97,11 +98,104 @@ try {
   await page.locator('span', { hasText: /^\$35\.00$/ }).last().waitFor()
   await shot('05-estimate')
 
+  // ───── AI + video ─────
+  const aiCalls = []
+  const ANALYSIS = { summary: 'Cracked valve box lid with standing water.', caption: 'Cracked valve box', tags: ['Issue', 'Damage'], observations: ['Standing water in box'], issues: [{ title: 'Cracked lid', severity: 'high', evidence: 'Visible crack across lid', recommendation: 'Replace valve box lid' }], materials: ['Valve box lid'], safety: [], reasoning: 'The crack spans the lid and water pools below it, so the lid no longer protects the valve.', confidence: 'high' }
+  const REVIEW = { summary: 'Repairs are mostly scoped; the valve box needs a new lid.', progress: 'Assessment done, repair pending', risks: ['Water intrusion may damage the valve'], nextSteps: ['Replace valve box lid', 'Re-test zone 4'], suggestedItems: [{ description: 'Replace zone valve', qty: 1, unit: 'ea' }, { description: 'Valve box lid', qty: 2, unit: 'ea' }], reasoning: 'Photos show a cracked lid and wet valve; both fixes are cheap compared to valve failure.' }
+  await ctx.route('https://api.anthropic.com/**', async (route) => {
+    const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'POST,OPTIONS' }
+    const req = route.request()
+    if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors })
+    const body = req.postDataJSON()
+    aiCalls.push({ headers: req.headers(), body })
+    const content = body.messages[0].content
+    const images = content.filter((c) => c.type === 'image').length
+    const text = images ? JSON.stringify(ANALYSIS) : /ok/.test(content[0].text) && content[0].text.length < 60 ? 'ok' : JSON.stringify(REVIEW)
+    await route.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify({ content: [{ type: 'text', text }] }) })
+  })
+
+  await page.getByRole('link', { name: 'Settings' }).last().click()
+  await page.getByRole('button', { name: 'Claude', exact: true }).click()
+  await page.getByPlaceholder('claude-sonnet-5-5').fill('claude-sonnet-5-5')
+  await page.locator('input[type=password]').fill('sk-test')
+  await page.getByRole('button', { name: 'Test connection' }).click()
+  await page.getByText('Connection works').waitFor()
+  await page.getByRole('link', { name: 'Projects' }).last().click()
+  await page.getByText('Johnson – sprinkler repair').click()
+
+  // upload a real video file (generated in-browser as webm)
+  const b64 = await page.evaluate(async () => {
+    const c = document.createElement('canvas'); c.width = 320; c.height = 240
+    const g = c.getContext('2d'); const r = new MediaRecorder(c.captureStream(15), { mimeType: 'video/webm' })
+    const ch = []; r.ondataavailable = (e) => ch.push(e.data); r.start()
+    let n = 0; const t = setInterval(() => { g.fillStyle = `hsl(${n * 20},80%,50%)`; g.fillRect(0, 0, 320, 240); g.fillStyle = '#fff'; g.fillText('frame ' + n++, 20, 40) }, 60)
+    await new Promise((res) => setTimeout(res, 2300)); clearInterval(t)
+    await new Promise((res) => { r.onstop = res; r.stop() })
+    const bytes = new Uint8Array(await new Blob(ch).arrayBuffer()); let s = ''
+    for (const b of bytes) s += String.fromCharCode(b)
+    return btoa(s)
+  })
+  await page.getByLabel('Upload photos or videos').setInputFiles({ name: 'walkthrough.webm', mimeType: 'video/webm', buffer: Buffer.from(b64, 'base64') })
+  await page.getByRole('button', { name: 'Open video' }).first().waitFor()
+
+  // record a second video with the (fake) camera
+  await page.getByRole('link', { name: 'Capture' }).first().click()
+  await page.getByRole('button', { name: 'video', exact: true }).click()
+  await page.waitForFunction(() => document.querySelector('video')?.videoWidth > 0)
+  await page.getByRole('button', { name: 'Start recording' }).click()
+  await page.getByText(/REC/).waitFor()
+  await page.waitForTimeout(2500)
+  await page.getByRole('button', { name: 'Stop recording' }).click()
+  await page.getByText('Saved ✓').waitFor({ timeout: 15000 })
+  await page.getByRole('link', { name: 'Projects' }).last().click()
+  await page.getByText('Johnson – sprinkler repair').click()
+  await page.getByRole('button', { name: 'Open video' }).first().waitFor()
+  await page.waitForFunction(() => document.querySelectorAll('.grid button[aria-label]').length === 4)
+  assert.equal(await page.getByRole('button', { name: 'Open video' }).count(), 2)
+
+  // open a video, confirm it plays, analyze it
+  await page.getByRole('button', { name: 'Open video' }).first().click()
+  const player = page.getByLabel('Video player')
+  await player.waitFor()
+  await page.waitForFunction(() => document.querySelector('video[aria-label="Video player"]')?.readyState >= 1)
+  await page.getByRole('button', { name: 'Analyze', exact: true }).click()
+  await page.getByText('Cracked valve box lid with standing water.').waitFor()
+  await page.getByText('Replace valve box lid').first().waitFor()
+  await page.getByText('How the AI reasoned').click()
+  await shot('09-ai-video')
+  const call = aiCalls.at(-1)
+  assert.equal(call.headers['x-api-key'], 'sk-test')
+  assert.ok(call.body.messages[0].content.filter((c) => c.type === 'image').length >= 2, 'video should send several frames')
+  await page.getByRole('button', { name: 'Add to punch list' }).click()
+  await page.getByRole('button', { name: 'Use caption' }).click()
+  await page.keyboard.press('Escape')
+
+  // analyze everything else, then AI job review
+  await page.getByRole('button', { name: /Analyze all/ }).click()
+  await page.waitForFunction(() => document.querySelectorAll('[aria-label="AI analyzed"]').length === 4, null, { timeout: 30000 })
+  await page.getByRole('button', { name: /Activity/ }).click()
+  await page.getByRole('button', { name: 'Review this job' }).click()
+  await page.getByText('Repairs are mostly scoped').waitFor()
+  await shot('10-ai-review')
+  const reviewCall = aiCalls.at(-1)
+  assert.ok(!reviewCall.body.messages[0].content.some((c) => c.type === 'image'), 'job review must be text-only')
+  assert.match(reviewCall.body.messages[0].content[0].text, /Cracked valve box lid/, 'review digest includes per-photo findings')
+  await page.getByRole('button', { name: 'Create estimate from items' }).click()
+  await page.getByLabel('Estimate title').last().waitFor()
+  assert.ok((await page.getByLabel('Estimate title').evaluateAll((els) => els.map((e) => e.value))).includes('AI-suggested estimate'))
+  await page.getByRole('button', { name: /Checklists/ }).click()
+  await page.getByText('AI findings').waitFor()
+  await page.getByText(/Cracked lid – Replace valve box lid/).waitFor()
+
   // report opens with photos + escaped content
   const [popup] = await Promise.all([ctx.waitForEvent('page'), page.getByRole('button', { name: 'Report' }).click()])
   await popup.waitForLoadState()
   await popup.getByRole('heading', { name: 'Johnson – sprinkler repair' }).waitFor()
-  assert.equal(await popup.locator('figure img').count(), 2)
+  assert.equal(await popup.locator('figure img').count(), 4)
+  await popup.getByText('▶ Video').first().waitFor()
+  await popup.getByText('AI job review').waitFor()
+  await popup.getByText('How the AI reasoned').first().waitFor()
+  assert.ok((await popup.locator('.ai').count()) >= 4)
   await popup.getByRole('cell', { name: 'Replace sprinkler head' }).waitFor() // estimate edited moments ago must be in the report
   await popup.screenshot({ path: `${process.env.SHOTS ?? '/tmp'}/jobcam-06-report.png`, fullPage: true })
   await popup.close()
@@ -128,7 +222,8 @@ try {
   const path = await dl.path()
   const { readFileSync } = await import('node:fs')
   const json = JSON.parse(readFileSync(path, 'utf8'))
-  assert.equal(json.data.photos.length, 2)
+  assert.equal(json.data.photos.length, 4)
+  assert.equal(json.data.photos.filter((p) => p.kind === 'video').length, 2)
   assert.equal(json.data.projects.length, 2)
   await shot('08-settings')
 

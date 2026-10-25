@@ -61,9 +61,9 @@ describe('recap', () => {
       body = JSON.parse(init.body as string)
       return new Response(JSON.stringify({ choices: [{ message: { content: ' Done. ' } }] }), { status: 200 })
     }) as unknown as typeof fetch
-    expect(await aiRecap('digest', { endpoint: 'http://x', apiKey: 'k', model: 'm' }, fake)).toBe('Done.')
-    expect(body.messages[1].content).toBe('digest')
-    await expect(aiRecap('d', { endpoint: '', apiKey: '', model: '' }, fake)).rejects.toThrow()
+    expect(await aiRecap('digest', { provider: 'openai', endpoint: 'http://x', apiKey: 'k', model: 'm' }, fake)).toBe('Done.')
+    expect(JSON.stringify(body.messages[1].content)).toContain('digest')
+    await expect(aiRecap('d', { provider: 'openai', endpoint: '', apiKey: '', model: '' }, fake)).rejects.toThrow()
   })
 })
 

@@ -1,4 +1,4 @@
-import { ArrowLeft, Columns2, FileText, ImagePlus, Camera, Pencil, Sparkles, Trash2, MessageSquare, ListChecks, Receipt, Images } from 'lucide-react'
+import { ArrowLeft, Brain, Columns2, FileText, ImagePlus, Camera, Pencil, Play, Sparkles, Trash2, MessageSquare, ListChecks, Receipt, Images } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import Checklists from '../components/Checklists'
@@ -8,14 +8,17 @@ import PhotoViewer from '../components/PhotoViewer'
 import ProjectForm from '../components/ProjectForm'
 import { Empty, Img, Modal } from '../components/ui'
 import { blobToDataUrl } from '../lib/blob'
-import { addPhoto } from '../lib/capture'
+import { addMedia, stillOf } from '../lib/capture'
+import { priceFor, reviewProject } from '../lib/ai'
+import { runAnalysis } from '../components/AiPanel'
+import { fmtDuration } from '../lib/video'
 import { deleteProject, get, listChecklists, listComments, listEstimates, listPhotos, loadSettings, put, remove, saveProject, savePhoto } from '../lib/db'
 import { useLoad } from '../lib/hooks'
 import { uid } from '../lib/id'
 import { flattenPhoto } from '../lib/image'
 import { aiRecap, localRecap } from '../lib/recap'
 import { buildReportHtml } from '../lib/report'
-import type { Photo, Project } from '../lib/types'
+import type { Checklist, Photo, Project } from '../lib/types'
 
 type Tab = 'photos' | 'checklists' | 'estimate' | 'activity'
 
@@ -53,6 +56,48 @@ export default function ProjectDetail() {
 
   const updatePhoto = (p: Photo) => { setEdits((e) => ({ ...e, [p.id]: p })); void savePhoto(p) }
 
+  const addToPunchList = async (title: string, items: string[]) => {
+    const fresh = await listChecklists(id)
+    const list: Checklist = fresh.find((c) => c.title === title) ?? { id: uid(), projectId: id, title, items: [], createdAt: Date.now() }
+    const have = new Set(list.items.map((i) => i.text.toLowerCase()))
+    const add = items.filter((t) => !have.has(t.toLowerCase())).map((text) => ({ id: uid(), text, done: false }))
+    await put('checklists', { ...list, items: [...list.items, ...add] })
+    reload()
+    window.alert(add.length ? `Added ${add.length} item${add.length === 1 ? '' : 's'} to “${title}”.` : 'Those items are already on the list.')
+  }
+
+  const analyzeAll = async () => {
+    const todo = photos.filter((p) => !p.ai)
+    if (!todo.length) { window.alert('Everything has already been analyzed.'); return }
+    if (!window.confirm(`Send ${todo.length} item${todo.length === 1 ? '' : 's'} to your AI provider (${settings.ai.model}) for analysis?`)) return
+    for (const [n, p] of todo.entries()) {
+      setBusy(`AI analyzing ${n + 1} of ${todo.length}…`)
+      try { updatePhoto(await runAnalysis(p, project, settings.ai)) } catch (e) { window.alert(`Stopped at item ${n + 1}: ${(e as Error).message}`); break }
+    }
+    setBusy('')
+    reload()
+  }
+
+  const doReview = async () => {
+    if (!window.confirm(`Send this job’s notes and AI findings (text only) to ${settings.ai.model} for review?`)) return
+    setBusy('AI is reasoning about the whole job…')
+    try {
+      const [fp, ch, co] = await Promise.all([listPhotos(id), listChecklists(id), listComments(id)])
+      const digest = `${localRecap(project, fp, ch, co)}\n${project.notes ? `Project notes: ${project.notes}\n` : ''}${fp.filter((p) => p.ai).map((p) => `- ${p.ai!.summary} Evidence/issues: ${p.ai!.issues.map((i) => `${i.title} [${i.severity}] ${i.evidence}`).join('; ') || 'none'}. Reasoning: ${p.ai!.reasoning}`).join('\n')}`
+      const review = await reviewProject(digest, settings.ai)
+      await saveProject({ ...project, review })
+      reload()
+    } catch (e) { window.alert((e as Error).message) } finally { setBusy('') }
+  }
+
+  const reviewToEstimate = async () => {
+    if (!project.review) return
+    const items = project.review.suggestedItems.map((i) => ({ id: uid(), description: i.description, qty: i.qty, unit: i.unit, unitPrice: priceFor(i.description, settings.priceBook) }))
+    await put('estimates', { id: uid(), projectId: id, title: 'AI-suggested estimate', items, taxRate: settings.taxRate, createdAt: Date.now() })
+    reload()
+    setTab('estimate')
+  }
+
   const makeReport = async (action: 'open' | 'download') => {
     setBusy('Building report…')
     try {
@@ -60,11 +105,13 @@ export default function ProjectDetail() {
       const [fp, checklists, comments, estimates] = await Promise.all([listPhotos(id), listChecklists(id), listComments(id), listEstimates(id)])
       const rp = await Promise.all(
         fp.slice().reverse().map(async (p) => ({
-          src: await blobToDataUrl(await flattenPhoto(p, 1400)),
+          src: await blobToDataUrl(p.kind === 'video' ? p.thumb : await flattenPhoto(p, 1400)),
           caption: p.caption, tags: p.tags, takenAt: p.takenAt, lat: p.lat, lng: p.lng,
+          isVideo: p.kind === 'video', duration: p.kind === 'video' ? fmtDuration(p.duration) : undefined,
+          ai: p.ai && { summary: p.ai.summary, issues: p.ai.issues, reasoning: p.ai.reasoning },
         })),
       )
-      const html = buildReportHtml({ settings, project, photos: rp, checklists, comments, estimates, recap: recap || localRecap(project, fp, checklists, comments) })
+      const html = buildReportHtml({ settings, project, photos: rp, checklists, comments, estimates, review: (await get<Project>('projects', id))?.review, recap: recap || localRecap(project, fp, checklists, comments) })
       const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }))
       if (action === 'open') window.open(url, '_blank')
       else {
@@ -117,13 +164,19 @@ export default function ProjectDetail() {
         <div className="space-y-3">
           <div className="flex flex-wrap gap-2">
             <Link to={`/capture?project=${id}`} className="btn btn-primary"><Camera size={18} /> Capture</Link>
-            <button className="btn" onClick={() => file.current?.click()}><ImagePlus size={18} /> Add photos</button>
+            <button className="btn" onClick={() => file.current?.click()}><ImagePlus size={18} /> Upload</button>
+            <button className="btn" disabled={!!busy || !settings.ai.model} title={settings.ai.model ? '' : 'Set up AI in Settings'} onClick={analyzeAll}><Sparkles size={18} /> Analyze all{photos.some((p) => !p.ai) ? ` (${photos.filter((p) => !p.ai).length})` : ''}</button>
             <button className={`btn ${selecting ? 'btn-primary' : ''}`} onClick={() => { setSelecting((s) => !s); setPicked([]) }}><Columns2 size={18} /> Select</button>
-            <input ref={file} hidden type="file" accept="image/*" multiple onChange={async (e) => {
-              setBusy('Importing photos…')
-              for (const f of Array.from(e.target.files ?? [])) await addPhoto(id, f, { withGps: false, tags: [] })
+            <input ref={file} hidden type="file" accept="image/*,video/*" multiple aria-label="Upload photos or videos" onChange={async (e) => {
+              const files = Array.from(e.target.files ?? [])
               e.target.value = ''
+              const failed: string[] = []
+              for (const [n, f] of files.entries()) {
+                setBusy(`Importing ${n + 1} of ${files.length}…`)
+                try { await addMedia(id, f, { withGps: false }) } catch { failed.push(f.name) }
+              }
               setBusy('')
+              if (failed.length) window.alert(`Couldn't import: ${failed.join(', ')}`)
               reload()
             }} />
           </div>
@@ -148,14 +201,17 @@ export default function ProjectDetail() {
             </div>
           )}
           {shown.length === 0 ? (
-            <Empty icon={<Images size={36} />} title="No photos yet" hint="Capture with the camera or add existing photos." />
+            <Empty icon={<Images size={36} />} title="No photos or videos yet" hint="Capture with the camera or upload existing photos and videos." />
           ) : (
             <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 lg:grid-cols-6">
               {shown.map((p) => (
-                <button key={p.id} className="relative aspect-square overflow-hidden rounded-lg bg-slate-200 dark:bg-slate-800" onClick={() => (selecting ? setPicked((x) => (x.includes(p.id) ? x.filter((i) => i !== p.id) : [...x, p.id])) : setViewing(p.id))} aria-label={p.caption || 'Open photo'}>
+                <button key={p.id} className="relative aspect-square overflow-hidden rounded-lg bg-slate-200 dark:bg-slate-800" onClick={() => (selecting ? setPicked((x) => (x.includes(p.id) ? x.filter((i) => i !== p.id) : [...x, p.id])) : setViewing(p.id))} aria-label={p.caption || (p.kind === 'video' ? 'Open video' : 'Open photo')}>
                   <Img blob={p.thumb} className="h-full w-full object-cover" />
                   {p.tags[0] && <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 text-[10px] font-bold text-white">{p.tags[0]}</span>}
                   {p.annotations.length > 0 && <Pencil size={12} className="absolute right-1 top-1 text-white drop-shadow" />}
+                  {p.kind === 'video' && <span className="absolute inset-0 grid place-items-center"><span className="flex items-center gap-1 rounded-full bg-black/60 px-2 py-1 text-xs font-bold text-white"><Play size={12} fill="white" /> {fmtDuration(p.duration)}</span></span>}
+                  {p.ai && <Sparkles size={12} className="absolute bottom-1 right-1 text-purple-300 drop-shadow" aria-label="AI analyzed" />}
+                  {p.ai?.issues.some((i) => i.severity === 'high') && <span className="absolute left-1 top-1 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white" aria-label="High severity issue" />}
                   {picked.includes(p.id) && <span className="absolute inset-0 grid place-items-center bg-blue-600/60 text-2xl font-bold text-white">{picked.indexOf(p.id) + 1}</span>}
                 </button>
               ))}
@@ -169,6 +225,28 @@ export default function ProjectDetail() {
 
       {tab === 'activity' && (
         <div className="space-y-3">
+          <div className="card space-y-3 border-purple-300 dark:border-purple-900">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="flex items-center gap-1.5 font-bold text-purple-800 dark:text-purple-300"><Brain size={18} /> AI job review</h3><span className="flex-1" />
+              <button className="btn" disabled={!!busy || !settings.ai.model} onClick={doReview}><Sparkles size={16} /> {project.review ? 'Re-run review' : 'Review this job'}</button>
+            </div>
+            {!settings.ai.model && <p className="text-sm text-slate-500">Set up an AI provider in Settings to reason across all photos, videos and notes.</p>}
+            {project.review && (
+              <div className="space-y-3 text-sm">
+                <p>{project.review.summary}</p>
+                {project.review.progress && <p><b>Progress:</b> {project.review.progress}</p>}
+                {project.review.risks.length > 0 && <div><p className="label">Risks</p><ul className="list-inside list-disc">{project.review.risks.map((r, n) => <li key={n}>{r}</li>)}</ul></div>}
+                {project.review.nextSteps.length > 0 && <div><p className="label">Next steps</p><ol className="list-inside list-decimal">{project.review.nextSteps.map((r, n) => <li key={n}>{r}</li>)}</ol></div>}
+                {project.review.suggestedItems.length > 0 && <div><p className="label">Suggested billable items</p><ul className="list-inside list-disc">{project.review.suggestedItems.map((r, n) => <li key={n}>{r.qty} {r.unit} – {r.description}</li>)}</ul></div>}
+                <details><summary className="cursor-pointer font-semibold">How the AI reasoned</summary><p className="mt-1 text-slate-700 dark:text-slate-300">{project.review.reasoning}</p></details>
+                <div className="flex flex-wrap gap-2">
+                  {project.review.nextSteps.length > 0 && <button className="btn" onClick={() => addToPunchList('AI next steps', project.review!.nextSteps)}>Add next steps to checklist</button>}
+                  {project.review.suggestedItems.length > 0 && <button className="btn" onClick={reviewToEstimate}>Create estimate from items</button>}
+                </div>
+                <p className="text-xs text-slate-500">{new Date(project.review.at).toLocaleString()} · {project.review.model} · AI can be wrong – verify before sending to customers.</p>
+              </div>
+            )}
+          </div>
           <div className="card space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="font-bold">Progress recap</h3><span className="flex-1" />
@@ -209,9 +287,10 @@ export default function ProjectDetail() {
           onUpdate={updatePhoto}
           onDelete={async (p) => { await remove('photos', p.id); setViewing(null); reload() }}
           onCover={async (p) => { await saveProject({ ...project, coverPhotoId: p.id }); reload() }}
+          project={project} ai={settings.ai} onAddIssues={(items) => addToPunchList('AI findings', items)}
         />
       )}
-      {comparing && <Modal title="Before / after" onClose={() => setComparing(null)} wide><Compare before={comparing[0].blob} after={comparing[1].blob} /></Modal>}
+      {comparing && <Modal title="Before / after" onClose={() => setComparing(null)} wide><Compare before={stillOf(comparing[0])} after={stillOf(comparing[1])} /></Modal>}
       {editing && <Modal title="Edit project" onClose={() => setEditing(false)}><ProjectForm initial={project} onCancel={() => setEditing(false)} onSave={async (p) => { await saveProject(p); setEditing(false); reload() }} /></Modal>}
     </div>
   )
