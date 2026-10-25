@@ -41,7 +41,7 @@ export default function Walk() {
     if (todo.length) await put('checklists', { id: uid(), projectId: project.id, title: 'Walkthrough punch list', createdAt: now, items: todo.map((t) => ({ id: uid(), text: t, done: false })) })
     if (result.lineItems.length) {
       const s = await loadSettings()
-      await put('estimates', { id: uid(), projectId: project.id, title: 'Estimate from walkthrough', createdAt: now, taxRate: s.taxRate, items: result.lineItems.map((l) => ({ ...l, id: uid() })) })
+      await put('estimates', { id: uid(), projectId: project.id, title: 'Estimate from walkthrough', proposal: false, createdAt: now, taxRate: s.taxRate, items: result.lineItems.map((l) => ({ ...l, id: uid() })) })
     }
     nav(`/p/${project.id}`)
   }

@@ -2,7 +2,7 @@ name: JobCam – test & publish
 
 on:
   push:
-    branches: [main, claude/company-cam-open-source-5y9ypa]
+    branches: [main]
     paths: ['jobcam/**', '.github/workflows/jobcam-pages.yml']
   pull_request:
     paths: ['jobcam/**', '.github/workflows/jobcam-pages.yml']

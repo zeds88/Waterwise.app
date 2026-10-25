@@ -9,6 +9,9 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 )
 
+// Ask the browser not to evict our database (iOS clears unused web storage after a while).
+navigator.storage?.persist?.().catch(() => {})
+
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   navigator.serviceWorker.register('./sw.js').catch(() => {})
 }

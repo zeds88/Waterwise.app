@@ -122,6 +122,8 @@ export interface LineItem {
 }
 export interface Estimate {
   id: string
+  /** false = internal draft (e.g. AI- or narration-generated): kept out of customer documents until included */
+  proposal?: boolean
   projectId: string
   title: string
   items: LineItem[]
@@ -152,7 +154,56 @@ export interface TranscriptionSettings {
   apiModel: string
 }
 
+export interface Branding {
+  /** data URL (PNG/JPEG) of the logo, already downscaled */
+  logo: string
+  /** hex like #2563eb */
+  color: string
+  tagline: string
+  phone: string
+  email: string
+  website: string
+  address: string
+  license: string
+  /** payment / general terms printed on proposals */
+  terms: string
+  footer: string
+}
+
+export type FieldType = 'text' | 'longtext' | 'number' | 'money' | 'date' | 'select'
+export interface ScopeField {
+  key: string
+  label: string
+  type: FieldType
+  options?: string[]
+  default?: string
+}
+/** Text fields may contain {{key|Label|type|default}} blanks. See lib/scope.ts. */
+export interface ScopeTemplate {
+  id: string
+  trade: string
+  title: string
+  summary: string
+  scope: string[]
+  included: string[]
+  excluded: string[]
+  assumptions: string[]
+  warranty: string
+  custom?: boolean
+}
+export interface ScopeDoc {
+  id: string
+  projectId: string
+  title: string
+  /** snapshot, so later edits to the library never change a signed document */
+  template: ScopeTemplate
+  values: Record<string, string>
+  createdAt: number
+}
+
 export interface Settings {
+  branding: Branding
+  customTemplates: ScopeTemplate[]
   companyName: string
   author: string
   priceBook: PriceBookEntry[]

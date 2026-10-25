@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import { useDictation } from '../lib/hooks'
 import type { LineItem, Photo, Project, Settings, Shape } from '../lib/types'
 import NarrationPanel from './NarrationPanel'
+import { UNPLAYABLE } from '../lib/video'
 import AiPanel from './AiPanel'
 import Annotator from './Annotator'
 import { Img, Modal, TagPicker } from './ui'
@@ -28,6 +29,7 @@ export default function PhotoViewer({ photo, index, total, isCover, onClose, onN
   const videoUrl = useObjectUrl(photo.kind === 'video' ? photo.blob : undefined)
   const isVideo = photo.kind === 'video'
   const videoEl = useRef<HTMLVideoElement>(null)
+  const [videoProblem, setVideoProblem] = useState(false)
   const [marking, setMarking] = useState(false)
   const dict = useDictation((t) => onUpdate({ ...photo, caption: photo.caption ? `${photo.caption} ${t}` : t }))
 
@@ -39,9 +41,15 @@ export default function PhotoViewer({ photo, index, total, isCover, onClose, onN
         ) : (
           <div className="relative overflow-hidden rounded-xl bg-black">
             {isVideo
-              ? <video ref={videoEl} key={photo.id} src={videoUrl} controls playsInline poster={undefined} className="mx-auto max-h-[58vh] w-full bg-black" aria-label="Video player" />
+              ? <video ref={videoEl} key={photo.id} src={videoUrl} onError={() => setVideoProblem(true)} onLoadedMetadata={(e) => { if (!e.currentTarget.videoWidth) setVideoProblem(true) }} controls playsInline poster={undefined} className="mx-auto max-h-[58vh] w-full bg-black" aria-label="Video player" />
               : <Img blob={photo.blob} className="mx-auto max-h-[58vh] w-auto object-contain" alt={photo.caption || 'Job photo'} />}
-            {photo.annotations.length > 0 && <span className="absolute left-2 top-2 rounded bg-blue-600 px-2 py-0.5 text-xs font-bold text-white">Marked up</span>}
+            {isVideo && videoProblem && (
+              <div role="alert" className="space-y-2 bg-amber-100 p-3 text-sm text-amber-950">
+                <p>{UNPLAYABLE}</p>
+                <a className="btn !py-1.5" href={videoUrl} download={`jobcam-video-${photo.id.slice(0, 6)}`}>Download original</a>
+              </div>
+            )}
+            {photo.annotations.length > 0 && <span className="absolute left-2 top-2 rounded bg-brand px-2 py-0.5 text-xs font-bold text-white">Marked up</span>}
             <button className="absolute left-1 top-1/2 rounded-full bg-black/50 p-2 text-white disabled:opacity-30" disabled={index === 0} onClick={() => onNav(-1)} aria-label="Previous"><ChevronLeft /></button>
             <button className="absolute right-1 top-1/2 rounded-full bg-black/50 p-2 text-white disabled:opacity-30" disabled={index === total - 1} onClick={() => onNav(1)} aria-label="Next"><ChevronRight /></button>
           </div>

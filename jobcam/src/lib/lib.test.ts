@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { arrowHead } from './annotate'
 import { totals, round2 } from './estimate'
-import { buildReportHtml, esc } from './report'
+import { buildProposalHtml, buildReportHtml, esc } from './report'
 import { aiRecap, localRecap } from './recap'
 import { blobToDataUrl, dataUrlToBlob } from './blob'
-import { deleteProject, listPhotos, listProjects, loadSettings, newProject, resetDb, saveProject, savePhoto, saveSettings, DEFAULT_SETTINGS, put, listChecklists } from './db'
+import { deleteProject, listPhotos, listProjects, loadSettings, newProject, resetDb, saveProject, savePhoto, saveSettings, DEFAULT_SETTINGS, DEFAULT_BRANDING, put, listChecklists } from './db'
 import { exportAll, importAll } from './backup'
 import type { Photo } from './types'
 
@@ -35,7 +35,7 @@ describe('report', () => {
     expect(esc(`<script>"x"&'`)).toBe('&lt;script&gt;&quot;x&quot;&amp;&#39;')
     const p = newProject({ name: '<b>Oak</b>', notes: 'a<script>' })
     const html = buildReportHtml({
-      settings: { companyName: 'Acme & Sons' }, project: p, recap: 'ok <i>',
+      settings: { companyName: 'Acme & Sons', branding: DEFAULT_BRANDING }, project: p, recap: 'ok <i>',
       photos: [{ src: 'data:image/jpeg;base64,AAAA', caption: '<img onerror=x>', tags: ['t"ag'], takenAt: 0 }],
       checklists: [], comments: [], estimates: [],
     })
@@ -110,5 +110,56 @@ describe('db + backup', () => {
 
   it('rejects foreign files', async () => {
     await expect(importAll('{"hello":1}')).rejects.toThrow('Not a JobCam backup')
+  })
+})
+
+describe('branded documents', () => {
+  const branding = { ...DEFAULT_BRANDING, color: '#b91c1c', logo: 'data:image/png;base64,iVBORw0KGgo=', tagline: 'Water <wise>', phone: '555-0100', email: 'a@b.co', website: 'example.com', address: '1 Main St', license: 'TXI-123', terms: 'Net 15 <b>', footer: 'Thanks!\nLine2' }
+  const base = { settings: { companyName: 'Waterline & Co', branding }, project: newProject({ name: 'Oak', customer: 'Pat', address: '9 Elm' }), estimates: [] as never[] }
+
+  it('puts logo, colour, contact, license and footer on the report and escapes text', () => {
+    const html = buildReportHtml({ ...base, photos: [], checklists: [], comments: [] })
+    expect(html).toContain('--brand:#b91c1c')
+    expect(html).toContain('<img class="logo" src="data:image/png;base64,iVBORw0KGgo=" alt="">')
+    expect(html).toContain('Waterline &amp; Co')
+    expect(html).toContain('License: TXI-123')
+    expect(html).toContain('Water &lt;wise&gt;')
+    expect(html).toContain('Thanks!<br>Line2')
+  })
+  it('refuses a logo that is not a raster data URL (no script/URL injection)', () => {
+    const bad = buildReportHtml({ ...base, settings: { companyName: 'X', branding: { ...branding, logo: 'javascript:alert(1)' } }, photos: [], checklists: [], comments: [] })
+    expect(bad).not.toContain('javascript:')
+    expect(bad).not.toContain('class="logo"')
+    const svg = buildReportHtml({ ...base, settings: { companyName: 'X', branding: { ...branding, logo: 'data:image/svg+xml;base64,PHN2Zz4=' } }, photos: [], checklists: [], comments: [] })
+    expect(svg).not.toContain('class="logo"')
+  })
+  it('darkens a too-light brand colour so table headers stay readable', () => {
+    const html = buildReportHtml({ ...base, settings: { companyName: 'X', branding: { ...branding, color: '#ffff00' } }, photos: [], checklists: [], comments: [] })
+    expect(html).not.toContain('--brand:#ffff00')
+  })
+  it('builds a proposal with scope, pricing, terms and signature lines', () => {
+    const html = buildProposalHtml({
+      ...base,
+      scopes: [{ title: 'Head repair', trade: 'Irrigation', summary: 'Fix <3> heads.', scope: ['Dig', 'Replace'], included: ['Parts'], excluded: [], assumptions: [], warranty: '1 year', blanks: [] }],
+      estimates: [{ id: 'e', projectId: 'p', title: 'Estimate', taxRate: 0, createdAt: 0, items: [{ id: 'i', description: 'Head', qty: 3, unit: 'ea', unitPrice: 35 }] }],
+    })
+    expect(html).toContain('Proposal &amp; scope of work')
+    expect(html).toContain('Fix &lt;3&gt; heads.')
+    expect(html).toContain('<ol><li>Dig</li><li>Replace</li></ol>')
+    expect(html).toContain('$105.00')
+    expect(html).toContain('Net 15 &lt;b&gt;')
+    expect(html).toContain('Customer signature')
+  })
+  it('keeps draft estimates (AI / narration generated) out of customer documents until included', () => {
+    const mk = (id: string, title: string, proposal?: boolean) => ({ id, projectId: 'p', title, taxRate: 0, createdAt: 0, ...(proposal === undefined ? {} : { proposal }), items: [{ id: 'i' + id, description: 'Thing ' + title, qty: 1, unit: 'ea', unitPrice: 10 }] })
+    const estimates = [mk('a', 'Approved'), mk('b', 'AI draft', false), mk('c', 'Ticked', true)]
+    const proposal = buildProposalHtml({ ...base, scopes: [], estimates })
+    const report = buildReportHtml({ ...base, photos: [], checklists: [], comments: [], estimates })
+    for (const html of [proposal, report]) {
+      expect(html).toContain('Thing Approved')
+      expect(html).toContain('Thing Ticked')
+      expect(html).not.toContain('AI draft')
+    }
+    expect(buildProposalHtml({ ...base, scopes: [], estimates: [mk('b', 'AI draft', false)] })).not.toContain('Pricing')
   })
 })

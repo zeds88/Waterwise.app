@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { TagPicker } from '../components/ui'
 import { addMedia } from '../lib/capture'
+import { warmPosition } from '../lib/image'
 import { fmtDuration } from '../lib/video'
 import { listProjects } from '../lib/db'
 import { useLoad } from '../lib/hooks'
@@ -23,6 +24,8 @@ export default function Capture() {
   const video = useRef<HTMLVideoElement>(null)
   const stream = useRef<MediaStream | null>(null)
   const file = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { warmPosition() }, [])
 
   useEffect(() => {
     if (!projectId && projects?.length) setProjectId(projects[0].id)
@@ -100,7 +103,7 @@ export default function Capture() {
     <div className="space-y-4">
       <h1 className="text-2xl font-extrabold">Capture</h1>
       {projects && projects.length === 0 ? (
-        <div className="card">No active projects. <Link className="font-semibold text-blue-600" to="/">Create one first →</Link></div>
+        <div className="card">No active projects. <Link className="font-semibold text-brand" to="/">Create one first →</Link></div>
       ) : (
         <select className="input" value={projectId} onChange={(e) => setProjectId(e.target.value)} aria-label="Project">
           {projects?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -117,7 +120,13 @@ export default function Capture() {
         <video ref={video} autoPlay playsInline muted className="aspect-[3/4] w-full object-cover sm:aspect-video" />
         {camError && <p className="absolute inset-0 grid place-items-center p-6 text-center text-sm text-white">{camError}</p>}
         <div className="absolute inset-x-0 bottom-0 flex items-center justify-around bg-gradient-to-t from-black/70 p-4">
-          <button className="btn !rounded-full !p-3" onClick={() => file.current?.click()} aria-label="Pick files"><ImagePlus size={22} /></button>
+          <label className="btn cursor-pointer !rounded-full !p-3" aria-label="Pick files"><ImagePlus size={22} />
+            <input ref={file} type="file" accept="image/*,video/*,.heic,.heif,.mov,.mp4,.m4v,.webm" multiple className="sr-only" aria-label="Pick photos or videos" onChange={async (e) => {
+              const files = Array.from(e.target.files ?? [])
+              e.target.value = ''
+              for (const f of files) await saveBlob(f)
+            }} />
+          </label>
           {mode === 'photo' ? (
             <button className="grid place-items-center rounded-full border-4 border-white bg-white/20 active:scale-90" style={{ width: 72, height: 72 }} onClick={shoot} aria-label="Take photo">
               <CamIcon className="text-white" />
@@ -132,11 +141,6 @@ export default function Capture() {
         {recording && <span className="absolute right-3 top-3 flex items-center gap-1.5 rounded-full bg-red-600 px-3 py-1 text-xs font-bold text-white"><span className="h-2 w-2 animate-pulse rounded-full bg-white" /> REC {fmtDuration(elapsed)}</span>}
         {(count > 0 || status) && <span className="absolute left-3 top-3 rounded-full bg-black/60 px-3 py-1 text-xs font-bold text-white">{status || `${count} saved`}{status && count ? ` · ${count}` : ''}</span>}
       </div>
-
-      <input ref={file} type="file" accept="image/*,video/*" multiple hidden aria-label="Pick photos or videos" onChange={async (e) => {
-        for (const f of Array.from(e.target.files ?? [])) await saveBlob(f)
-        e.target.value = ''
-      }} />
 
       <div>
         <span className="label">Tag the next photos</span>
