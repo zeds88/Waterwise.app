@@ -1,6 +1,10 @@
 import { Download, Plus, Trash2, Upload } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Field } from '../components/ui'
+import BrandingSettings from '../components/BrandingSettings'
+import TemplateEditor from '../components/TemplateEditor'
+import { TRADES } from '../lib/scopeLibrary'
+import type { ScopeTemplate } from '../lib/types'
 import { exportAll, importAll } from '../lib/backup'
 import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '../lib/db'
 import { callModel } from '../lib/ai'
@@ -19,6 +23,7 @@ export default function SettingsScreen() {
   const [loaded, setLoaded] = useState(false)
   const [msg, setMsg] = useState('')
   const [testing, setTesting] = useState(false)
+  const [editTpl, setEditTpl] = useState<ScopeTemplate | 'new' | null>(null)
   const [storage, setStorage] = useState('')
   useEffect(() => {
     navigator.storage?.estimate?.().then((e) => {
@@ -36,13 +41,27 @@ export default function SettingsScreen() {
     <div className="space-y-5">
       <h1 className="text-2xl font-extrabold">Settings</h1>
 
+      <BrandingSettings s={s} setS={setS} />
+
       <section className="card space-y-3">
-        <h2 className="font-bold">Your business</h2>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Field label="Company name"><input className="input" value={s.companyName} onChange={(e) => setS({ ...s, companyName: e.target.value })} /></Field>
+        <h2 className="font-bold">Defaults</h2>
+        <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Your name (comments)"><input className="input" value={s.author} onChange={(e) => setS({ ...s, author: e.target.value })} /></Field>
           <Field label="Default tax %"><input className="input" type="number" min={0} step="any" value={s.taxRate} onChange={(e) => setS({ ...s, taxRate: +e.target.value })} /></Field>
         </div>
+      </section>
+
+      <section className="card space-y-3">
+        <h2 className="font-bold">My scope templates</h2>
+        <p className="text-sm text-slate-500">Your own fill-in-the-blank services and scopes of work. Start from a built-in one with <b>Customize</b> in a project's Scope tab, or write one from scratch.</p>
+        {s.customTemplates.length === 0 && <p className="text-sm text-slate-500">None yet.</p>}
+        <ul className="space-y-2">{s.customTemplates.map((t) => (
+          <li key={t.id} className="flex items-center gap-2"><span className="min-w-0 flex-1 truncate font-semibold">{t.title}</span><button className="btn !py-1.5" onClick={() => setEditTpl(t)}>Edit</button></li>
+        ))}</ul>
+        <button className="btn" onClick={() => setEditTpl('new')}>+ New template</button>
+        {editTpl && <TemplateEditor initial={editTpl === 'new' ? undefined : editTpl} trades={TRADES} onCancel={() => setEditTpl(null)}
+          onSave={(t) => { setS({ ...s, customTemplates: s.customTemplates.some((x) => x.id === t.id) ? s.customTemplates.map((x) => (x.id === t.id ? t : x)) : [...s.customTemplates, t] }); setEditTpl(null) }}
+          onDelete={editTpl !== 'new' ? () => { setS({ ...s, customTemplates: s.customTemplates.filter((x) => x.id !== editTpl.id) }); setEditTpl(null) } : undefined} />}
       </section>
 
       <section className="card space-y-3">

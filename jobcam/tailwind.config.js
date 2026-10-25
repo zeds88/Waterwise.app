@@ -2,6 +2,6 @@
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   darkMode: 'media',
-  theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'] } } },
+  theme: { extend: { colors: { brand: 'rgb(var(--brand) / <alpha-value>)' }, fontFamily: { sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'] } } },
   plugins: [],
 }

@@ -1,7 +1,10 @@
-import { ArrowLeft, Brain, Columns2, FileText, ImagePlus, Camera, Pencil, Play, Sparkles, Trash2, MessageSquare, ListChecks, Receipt, Images } from 'lucide-react'
+import { ArrowLeft, Brain, ClipboardList, Columns2, FileText, ImagePlus, Camera, Pencil, Play, Sparkles, Trash2, MessageSquare, ListChecks, Receipt, Images } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import Checklists from '../components/Checklists'
+import ScopeTab from '../components/ScopeTab'
+import { openPending, showHtml } from '../lib/open'
+import { renderTemplate } from '../lib/scope'
 import Compare from '../components/Compare'
 import EstimateTab from '../components/EstimateTab'
 import PhotoViewer from '../components/PhotoViewer'
@@ -12,7 +15,7 @@ import { addMedia, stillOf } from '../lib/capture'
 import { priceFor, reviewProject } from '../lib/ai'
 import { runAnalysis } from '../components/AiPanel'
 import { fmtDuration } from '../lib/video'
-import { deleteProject, get, listChecklists, listComments, listEstimates, listPhotos, loadSettings, put, remove, saveProject, savePhoto } from '../lib/db'
+import { deleteProject, get, listChecklists, listComments, listEstimates, listPhotos, listScopes, loadSettings, put, remove, saveProject, savePhoto } from '../lib/db'
 import { useLoad } from '../lib/hooks'
 import { uid } from '../lib/id'
 import { flattenPhoto } from '../lib/image'
@@ -20,7 +23,7 @@ import { aiRecap, localRecap } from '../lib/recap'
 import { buildReportHtml } from '../lib/report'
 import type { Checklist, Photo, Project } from '../lib/types'
 
-type Tab = 'photos' | 'checklists' | 'estimate' | 'activity'
+type Tab = 'photos' | 'scope' | 'checklists' | 'estimate' | 'activity'
 
 export default function ProjectDetail() {
   const { id = '' } = useParams()
@@ -37,17 +40,17 @@ export default function ProjectDetail() {
   const file = useRef<HTMLInputElement>(null)
 
   const [data, reload] = useLoad(async () => {
-    const [project, photos, checklists, comments, estimates, settings] = await Promise.all([
-      get<Project>('projects', id), listPhotos(id), listChecklists(id), listComments(id), listEstimates(id), loadSettings(),
+    const [project, photos, checklists, comments, estimates, settings, scopes] = await Promise.all([
+      get<Project>('projects', id), listPhotos(id), listChecklists(id), listComments(id), listEstimates(id), loadSettings(), listScopes(id),
     ])
-    return { project, photos, checklists, comments, estimates, settings }
+    return { project, photos, checklists, comments, estimates, settings, scopes }
   }, [id])
 
   const [edits, setEdits] = useState<Record<string, Photo>>({})
   useEffect(() => setEdits({}), [data])
   const allTags = useMemo(() => [...new Set((data?.photos ?? []).flatMap((p) => p.tags))], [data?.photos])
   if (!data) return <p className="text-slate-500">Loading…</p>
-  const { project, checklists, comments, estimates, settings } = data
+  const { project, checklists, comments, estimates, settings, scopes } = data
   const photos = data.photos.map((p) => edits[p.id] ?? p)
   if (!project) return <Empty icon={<FileText size={32} />} title="Project not found"><Link to="/" className="btn mt-2">Back to projects</Link></Empty>
 
@@ -67,9 +70,9 @@ export default function ProjectDetail() {
   }
 
   const addToEstimate = async (items: Omit<import('../lib/types').LineItem, 'id'>[]) => {
-    await put('estimates', { id: uid(), projectId: id, title: 'Estimate from narration', items: items.map((i) => ({ ...i, id: uid() })), taxRate: settings.taxRate, createdAt: Date.now() })
+    await put('estimates', { id: uid(), projectId: id, title: 'Estimate from narration', proposal: false, items: items.map((i) => ({ ...i, id: uid() })), taxRate: settings.taxRate, createdAt: Date.now() })
     reload()
-    window.alert('Estimate created – see the Estimate tab.')
+    window.alert('Draft estimate created – review it in the Estimate tab, then tick “Include in customer proposal”.')
   }
 
   const analyzeAll = async () => {
@@ -99,16 +102,17 @@ export default function ProjectDetail() {
   const reviewToEstimate = async () => {
     if (!project.review) return
     const items = project.review.suggestedItems.map((i) => ({ id: uid(), description: i.description, qty: i.qty, unit: i.unit, unitPrice: priceFor(i.description, settings.priceBook) }))
-    await put('estimates', { id: uid(), projectId: id, title: 'AI-suggested estimate', items, taxRate: settings.taxRate, createdAt: Date.now() })
+    await put('estimates', { id: uid(), projectId: id, title: 'AI-suggested estimate', proposal: false, items, taxRate: settings.taxRate, createdAt: Date.now() })
     reload()
     setTab('estimate')
   }
 
   const makeReport = async (action: 'open' | 'download') => {
+    const win = action === 'open' ? openPending() : null // before any await, or Safari blocks the popup
     setBusy('Building report…')
     try {
       // re-read from the database: tabs save optimistically, so React state may be a beat behind
-      const [fp, checklists, comments, estimates] = await Promise.all([listPhotos(id), listChecklists(id), listComments(id), listEstimates(id)])
+      const [fp, checklists, comments, estimates, scopeDocs, fresh] = await Promise.all([listPhotos(id), listChecklists(id), listComments(id), listEstimates(id), listScopes(id), loadSettings()])
       const rp = await Promise.all(
         fp.slice().reverse().map(async (p) => ({
           src: await blobToDataUrl(p.kind === 'video' ? p.thumb : await flattenPhoto(p, 1400)),
@@ -118,16 +122,14 @@ export default function ProjectDetail() {
           transcript: p.transcript?.chunks.length ? p.transcript.chunks.map((c) => `[${fmtDuration(c.start)}] ${c.text}`).join('\n') : p.transcript?.text,
         })),
       )
-      const html = buildReportHtml({ settings, project, photos: rp, checklists, comments, estimates, review: (await get<Project>('projects', id))?.review, recap: recap || localRecap(project, fp, checklists, comments) })
-      const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }))
-      if (action === 'open') window.open(url, '_blank')
-      else {
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `${project.name.replace(/[^\w]+/g, '-')}-report.html`
-        a.click()
-      }
-      setTimeout(() => URL.revokeObjectURL(url), 60_000)
+      const html = buildReportHtml({
+        settings: fresh, project, photos: rp, checklists, comments, estimates, scopes: scopeDocs.map((d) => renderTemplate(d.template, d.values)),
+        review: (await get<Project>('projects', id))?.review, recap: recap || localRecap(project, fp, checklists, comments),
+      })
+      showHtml(win, html, `${project.name.replace(/[^\w]+/g, '-')}-report.html`)
+    } catch (e) {
+      win?.close()
+      window.alert(`Couldn’t build the report: ${(e as Error).message}`)
     } finally { setBusy('') }
   }
 
@@ -140,6 +142,7 @@ export default function ProjectDetail() {
 
   const TABS: { key: Tab; label: string; icon: typeof Images; n?: number }[] = [
     { key: 'photos', label: 'Photos', icon: Images, n: photos.length },
+    { key: 'scope', label: 'Scope', icon: ClipboardList, n: scopes.length },
     { key: 'checklists', label: 'Checklists', icon: ListChecks, n: checklists.length },
     { key: 'estimate', label: 'Estimate', icon: Receipt, n: estimates.length },
     { key: 'activity', label: 'Activity', icon: MessageSquare, n: comments.length },
@@ -147,7 +150,7 @@ export default function ProjectDetail() {
 
   return (
     <div className="space-y-4">
-      <Link to="/" className="inline-flex items-center gap-1 text-sm font-semibold text-blue-600"><ArrowLeft size={16} /> Projects</Link>
+      <Link to="/" className="inline-flex items-center gap-1 text-sm font-semibold text-brand"><ArrowLeft size={16} /> Projects</Link>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="truncate text-2xl font-extrabold">{project.name}</h1>
@@ -220,7 +223,7 @@ export default function ProjectDetail() {
                   {p.kind === 'video' && <span className="absolute inset-0 grid place-items-center"><span className="flex items-center gap-1 rounded-full bg-black/60 px-2 py-1 text-xs font-bold text-white"><Play size={12} fill="white" /> {fmtDuration(p.duration)}</span></span>}
                   {p.ai && <Sparkles size={12} className="absolute bottom-1 right-1 text-purple-300 drop-shadow" aria-label="AI analyzed" />}
                   {p.ai?.issues.some((i) => i.severity === 'high') && <span className="absolute left-1 top-1 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white" aria-label="High severity issue" />}
-                  {picked.includes(p.id) && <span className="absolute inset-0 grid place-items-center bg-blue-600/60 text-2xl font-bold text-white">{picked.indexOf(p.id) + 1}</span>}
+                  {picked.includes(p.id) && <span className="absolute inset-0 grid place-items-center bg-brand/60 text-2xl font-bold text-white">{picked.indexOf(p.id) + 1}</span>}
                 </button>
               ))}
             </div>
@@ -228,6 +231,7 @@ export default function ProjectDetail() {
         </div>
       )}
 
+      {tab === 'scope' && <ScopeTab project={project} docs={scopes} settings={settings} reload={reload} />}
       {tab === 'checklists' && <Checklists projectId={id} lists={checklists} reload={reload} />}
       {tab === 'estimate' && <EstimateTab projectId={id} estimates={estimates} priceBook={settings.priceBook} taxRate={settings.taxRate} reload={reload} />}
 

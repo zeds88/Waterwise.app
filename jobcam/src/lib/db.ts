@@ -1,4 +1,4 @@
-import type { Checklist, Comment, Estimate, Photo, Project, Settings } from './types'
+import type { Branding, Checklist, Comment, Estimate, Photo, Project, ScopeDoc, Settings } from './types'
 import { uid } from './id'
 
 /**
@@ -6,11 +6,11 @@ import { uid } from './id'
  * nothing is uploaded unless the user exports or configures sync themselves.
  */
 const DB_NAME = 'jobcam'
-const DB_VERSION = 1
+const DB_VERSION = 2 // v2 adds the 'scopes' store; existing data is untouched
 
-export const STORES = ['projects', 'photos', 'checklists', 'comments', 'estimates', 'meta'] as const
+export const STORES = ['projects', 'photos', 'checklists', 'comments', 'estimates', 'scopes', 'meta'] as const
 export type StoreName = (typeof STORES)[number]
-const BY_PROJECT: StoreName[] = ['photos', 'checklists', 'comments', 'estimates']
+const BY_PROJECT: StoreName[] = ['photos', 'checklists', 'comments', 'estimates', 'scopes']
 
 let dbPromise: Promise<IDBDatabase> | null = null
 
@@ -19,9 +19,11 @@ export function openDb(): Promise<IDBDatabase> {
     const req = indexedDB.open(DB_NAME, DB_VERSION)
     req.onupgradeneeded = () => {
       const db = req.result
+      const tx = req.transaction!
       for (const name of STORES) {
-        const store = db.createObjectStore(name, { keyPath: name === 'meta' ? 'key' : 'id' })
-        if (BY_PROJECT.includes(name)) store.createIndex('projectId', 'projectId')
+        // create only what's missing, so upgrading never touches existing stores
+        const store = db.objectStoreNames.contains(name) ? tx.objectStore(name) : db.createObjectStore(name, { keyPath: name === 'meta' ? 'key' : 'id' })
+        if (BY_PROJECT.includes(name) && !store.indexNames.contains('projectId')) store.createIndex('projectId', 'projectId')
       }
     }
     req.onsuccess = () => resolve(req.result)
@@ -98,9 +100,18 @@ export const listChecklists = (projectId: string) => getByProject<Checklist>('ch
 export const listComments = async (projectId: string) =>
   (await getByProject<Comment>('comments', projectId)).sort((a, b) => a.createdAt - b.createdAt)
 export const listEstimates = (projectId: string) => getByProject<Estimate>('estimates', projectId)
+export const listScopes = async (projectId: string) =>
+  (await getByProject<ScopeDoc>('scopes', projectId)).sort((a, b) => a.createdAt - b.createdAt)
 
 // ── Settings ───────────────────────────────────────────────
+export const DEFAULT_BRANDING: Branding = { logo: '', color: '#2563eb', tagline: '', phone: '', email: '', website: '', address: '', license: '', terms: '', footer: '' }
+
+export const SAMPLE_TERMS =
+  'Payment: ____% deposit due at acceptance; balance due on completion. Pricing is valid for 30 days. Changes to the scope are documented in a signed change order before work begins. Late balances may incur interest as allowed by law.'
+
 export const DEFAULT_SETTINGS: Settings = {
+  branding: DEFAULT_BRANDING,
+  customTemplates: [],
   companyName: 'My Company',
   author: 'Me',
   taxRate: 0,
@@ -120,6 +131,10 @@ export const DEFAULT_SETTINGS: Settings = {
 
 export async function loadSettings(): Promise<Settings> {
   const row = await get<{ key: string; value: Settings }>('meta', 'settings')
-  return { ...DEFAULT_SETTINGS, ...row?.value, ai: { ...DEFAULT_SETTINGS.ai, ...row?.value?.ai }, transcription: { ...DEFAULT_SETTINGS.transcription, ...row?.value?.transcription } }
+  return { ...DEFAULT_SETTINGS, ...row?.value, branding: { ...DEFAULT_BRANDING, ...row?.value?.branding }, customTemplates: row?.value?.customTemplates ?? [], ai: { ...DEFAULT_SETTINGS.ai, ...row?.value?.ai }, transcription: { ...DEFAULT_SETTINGS.transcription, ...row?.value?.transcription } }
 }
-export const saveSettings = (value: Settings) => put('meta', { key: 'settings', value })
+export async function saveSettings(value: Settings) {
+  const row = await put('meta', { key: 'settings', value })
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('jobcam:settings')) // lets the shell re-theme instantly
+  return row
+}

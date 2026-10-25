@@ -85,3 +85,17 @@ export async function toModelDataUrl(blob: Blob, edge = 1280): Promise<string> {
     return c.toDataURL('image/jpeg', 0.8)
   } finally { img.dispose() }
 }
+
+/** Downscale a logo upload to a small transparent PNG data URL (kept in settings, printed on documents). */
+export async function fileToLogo(file: Blob, name = 'logo'): Promise<string> {
+  if (file.size > 10 * 1024 * 1024) throw new Error('That logo file is too large (over 10 MB).')
+  const img = await decodeImage(file, name)
+  try {
+    const scale = Math.min(1, 480 / img.width, 240 / img.height)
+    const c = document.createElement('canvas')
+    c.width = Math.max(1, Math.round(img.width * scale))
+    c.height = Math.max(1, Math.round(img.height * scale))
+    c.getContext('2d')!.drawImage(img.source, 0, 0, c.width, c.height)
+    return c.toDataURL('image/png')
+  } finally { img.dispose() }
+}

@@ -49,7 +49,7 @@ export default function PhotoViewer({ photo, index, total, isCover, onClose, onN
                 <a className="btn !py-1.5" href={videoUrl} download={`jobcam-video-${photo.id.slice(0, 6)}`}>Download original</a>
               </div>
             )}
-            {photo.annotations.length > 0 && <span className="absolute left-2 top-2 rounded bg-blue-600 px-2 py-0.5 text-xs font-bold text-white">Marked up</span>}
+            {photo.annotations.length > 0 && <span className="absolute left-2 top-2 rounded bg-brand px-2 py-0.5 text-xs font-bold text-white">Marked up</span>}
             <button className="absolute left-1 top-1/2 rounded-full bg-black/50 p-2 text-white disabled:opacity-30" disabled={index === 0} onClick={() => onNav(-1)} aria-label="Previous"><ChevronLeft /></button>
             <button className="absolute right-1 top-1/2 rounded-full bg-black/50 p-2 text-white disabled:opacity-30" disabled={index === total - 1} onClick={() => onNav(1)} aria-label="Next"><ChevronRight /></button>
           </div>

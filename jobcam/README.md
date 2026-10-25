@@ -43,6 +43,11 @@ Open it on a phone and "Add to Home Screen" – it installs as an offline PWA.
 | Estimates with editable price book, tax, totals | ✅ |
 | **Walk the job**: dictate a site walk → issues, punch list and priced estimate, on-device | ✅ |
 | Voice dictation for photo captions | ✅ (browser Web Speech API) |
+| **Your branding**: logo, brand color (auto-kept readable), tagline, contact, license no., terms and footer on every report and proposal; the whole app takes on your color | ✅ |
+| **Service & scope-of-work library**: 30 professional fill-in-the-blank templates across irrigation, drainage, plumbing, painting, roofing, landscaping, HVAC, electrical, general, cleaning, plus assessment / change-order / completion documents | ✅ |
+| Fill-in-the-blank engine: typed blanks (text, number, money, date, dropdown), auto-fill of customer/address/date, live preview with unfilled blanks highlighted (they print as ______ to complete by hand) | ✅ |
+| **My templates**: customize any built-in template or write your own with `{{key\|Label\|type\|default}}` blanks | ✅ |
+| Branded **proposal** (scope + pricing + terms + signature lines), print to PDF; AI/narration-generated estimates stay drafts until you include them | ✅ |
 | Shareable report: self-contained HTML, print to PDF, email as a file | ✅ |
 | **AI photo/video analysis**: summary, caption, tags, issues with severity + evidence + fix, materials, safety flags, confidence, and written *reasoning* | ✅ bring-your-own model |
 | Video analysis by sampling timestamped frames | ✅ |
@@ -72,6 +77,12 @@ Open it on a phone and "Add to Home Screen" – it installs as an offline PWA.
 Multi-user accounts and real-time team sync, a hosted client portal / live share links,
 native iOS/Android apps (the PWA is the mobile app for now), map view of all projects,
 video trimming, e-signatures, and integrations (QuickBooks, Jobber, Zapier…). See the roadmap.
+
+### Scope templates & branding
+Open a project → **Scope** → *New from template*. Pick a service, fill the blanks (customer and address are
+pre-filled), save, then print a branded **Proposal** from the same tab. Template text is a neutral starting
+point: confirm local code, licensing and permit rules before relying on a document, and edit anything via
+*Customize*. Branding lives in Settings → *Your brand*.
 
 ### Narration setup
 Settings → *Video narration*. The default engine runs Whisper **in your browser** via transformers.js: the
@@ -103,17 +114,18 @@ AI output can be wrong; the UI says so and nothing is auto-applied without a tap
 
 ```
 src/lib/        pure, tested logic: db (IndexedDB), ai (vision + reasoning, 2 providers),
+                scope + scopeLibrary (fill-in-the-blank), brand, decode (robust image/video import),
                 narration parser, estimate math, recap, report builder, backup, video frames
 src/components/ Annotator, AiPanel, Compare, PhotoViewer, Checklists, EstimateTab, ui
 src/screens/    Projects, ProjectDetail, Capture, Walk, SettingsScreen
 public/         manifest, service worker (offline app shell), icons
-e2e/smoke.mjs   Playwright end-to-end test with a fake camera
+e2e/smoke.mjs   Playwright end-to-end test with a fake camera (fixtures in e2e/fixtures: rotated JPEG, HEVC .mov, HEIC, logo)
 ```
 
 Stack: React 19 · TypeScript · Vite · Tailwind 3 · IndexedDB · Web Speech API · Service Worker.
 
 ### Testing
-`npm test` runs 38 unit tests (both AI provider request shapes, JSON recovery, frame caps, WAV encoding, transcript normalisation, both speech engines). `npm run build && node e2e/smoke.mjs` drives the real app in
+`npm test` runs 89 unit tests (AI request shapes, JSON recovery, WAV/transcripts, speech engines, the fill-in-the-blank engine, a data-lint over every built-in template, branded document escaping, brand-color contrast, and the v1→v2 database upgrade). `npm run build && node e2e/smoke.mjs` drives the real app in
 headless Chromium (fake camera + GPS): create project → capture → annotate → compare →
 video upload + recording → AI analysis (mocked provider) → AI job review → checklist → estimate →
 report → walk-the-job → search → backup.

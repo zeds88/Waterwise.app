@@ -103,7 +103,7 @@ export default function Capture() {
     <div className="space-y-4">
       <h1 className="text-2xl font-extrabold">Capture</h1>
       {projects && projects.length === 0 ? (
-        <div className="card">No active projects. <Link className="font-semibold text-blue-600" to="/">Create one first →</Link></div>
+        <div className="card">No active projects. <Link className="font-semibold text-brand" to="/">Create one first →</Link></div>
       ) : (
         <select className="input" value={projectId} onChange={(e) => setProjectId(e.target.value)} aria-label="Project">
           {projects?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}

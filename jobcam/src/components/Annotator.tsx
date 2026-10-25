@@ -96,7 +96,7 @@ export default function Annotator({ photo, onChange }: { photo: Photo; onChange:
         ))}
         <span className="mx-1 h-6 w-px bg-slate-300 dark:bg-slate-700" />
         {COLORS.map((c) => (
-          <button key={c} aria-label={`Color ${c}`} onClick={() => setColor(c)} className={`h-7 w-7 rounded-full border-2 ${color === c ? 'border-blue-500 ring-2 ring-blue-500/40' : 'border-slate-400'}`} style={{ background: c }} />
+          <button key={c} aria-label={`Color ${c}`} onClick={() => setColor(c)} className={`h-7 w-7 rounded-full border-2 ${color === c ? 'border-brand ring-2 ring-brand/40' : 'border-slate-400'}`} style={{ background: c }} />
         ))}
         <span className="flex-1" />
         <button className="btn !px-3" disabled={!shapes.length} onClick={() => commit(shapes.slice(0, -1))} aria-label="Undo"><Undo2 size={18} /></button>
