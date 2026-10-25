@@ -1,0 +1,44 @@
+name: JobCam – test & publish
+
+on:
+  push:
+    branches: [main, claude/company-cam-open-source-5y9ypa]
+    paths: ['jobcam/**', '.github/workflows/jobcam-pages.yml']
+  pull_request:
+    paths: ['jobcam/**', '.github/workflows/jobcam-pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write # lets the job push the built site to the gh-pages branch
+
+concurrency:
+  group: jobcam-pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: jobcam
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: jobcam/package-lock.json
+      - run: npm ci
+      - run: npx tsc -b
+      - run: npm test
+      - run: npm run build
+      # Publish only from push/dispatch (never from a PR). One-time repo setting:
+      # Settings -> Pages -> Source: "Deploy from a branch" -> gh-pages / (root).
+      - name: Publish to gh-pages
+        if: github.event_name != 'pull_request'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: jobcam/dist
+          force_orphan: true
+          commit_message: 'Publish JobCam ${{ github.sha }}'

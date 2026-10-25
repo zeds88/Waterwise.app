@@ -17,6 +17,13 @@ npm test           # unit tests (vitest)
 npm run build      # static site in dist/ – host anywhere (Vercel, Netlify, S3, GitHub Pages)
 ```
 
+## Hosted version
+Every push to `main` is tested, built and published to **GitHub Pages** by
+`.github/workflows/jobcam-pages.yml` → `https://<owner>.github.io/<repo>/`
+(one-time setup: repo **Settings → Pages → Source: Deploy from a branch → `gh-pages` / root**).
+It is a static site – there is no server to run or pay for – and everything stays in each user's browser.
+Prefer Vercel/Netlify? Import the repo, set the root directory to `jobcam`; `vercel.json` is included.
+
 Open it on a phone and "Add to Home Screen" – it installs as an offline PWA.
 (The camera and microphone need HTTPS or `localhost`.)
 
