@@ -171,21 +171,22 @@ export default function ProjectDetail() {
         <div className="space-y-3">
           <div className="flex flex-wrap gap-2">
             <Link to={`/capture?project=${id}`} className="btn btn-primary"><Camera size={18} /> Capture</Link>
-            <button className="btn" onClick={() => file.current?.click()}><ImagePlus size={18} /> Upload</button>
+            <label className="btn cursor-pointer"><ImagePlus size={18} /> Upload
+              <input ref={file} type="file" accept="image/*,video/*,.heic,.heif,.mov,.mp4,.m4v,.webm" multiple className="sr-only" aria-label="Upload photos or videos" onChange={async (e) => {
+                const files = Array.from(e.target.files ?? [])
+                e.target.value = ''
+                const failed: string[] = []
+                for (const [n, f] of files.entries()) {
+                  setBusy(`Importing ${n + 1} of ${files.length}: ${f.name}…`)
+                  try { await addMedia(id, f, { withGps: false }) } catch (err) { failed.push(`• ${f.name}: ${(err as Error).message}`) }
+                }
+                setBusy('')
+                if (failed.length) window.alert(`${files.length - failed.length} of ${files.length} imported.\n\n${failed.join('\n\n')}`)
+                reload()
+              }} />
+            </label>
             <button className="btn" disabled={!!busy || !settings.ai.model} title={settings.ai.model ? '' : 'Set up AI in Settings'} onClick={analyzeAll}><Sparkles size={18} /> Analyze all{photos.some((p) => !p.ai) ? ` (${photos.filter((p) => !p.ai).length})` : ''}</button>
             <button className={`btn ${selecting ? 'btn-primary' : ''}`} onClick={() => { setSelecting((s) => !s); setPicked([]) }}><Columns2 size={18} /> Select</button>
-            <input ref={file} hidden type="file" accept="image/*,video/*" multiple aria-label="Upload photos or videos" onChange={async (e) => {
-              const files = Array.from(e.target.files ?? [])
-              e.target.value = ''
-              const failed: string[] = []
-              for (const [n, f] of files.entries()) {
-                setBusy(`Importing ${n + 1} of ${files.length}…`)
-                try { await addMedia(id, f, { withGps: false }) } catch { failed.push(f.name) }
-              }
-              setBusy('')
-              if (failed.length) window.alert(`Couldn't import: ${failed.join(', ')}`)
-              reload()
-            }} />
           </div>
           {allTags.length > 0 && (
             <div className="flex flex-wrap gap-2">

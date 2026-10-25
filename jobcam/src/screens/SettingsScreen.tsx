@@ -19,6 +19,12 @@ export default function SettingsScreen() {
   const [loaded, setLoaded] = useState(false)
   const [msg, setMsg] = useState('')
   const [testing, setTesting] = useState(false)
+  const [storage, setStorage] = useState('')
+  useEffect(() => {
+    navigator.storage?.estimate?.().then((e) => {
+      if (e.usage !== undefined && e.quota) setStorage(`${(e.usage / 1048576).toFixed(0)} MB used of about ${(e.quota / 1048576).toFixed(0)} MB available on this device`)
+    }).catch(() => {})
+  }, [])
   const file = useRef<HTMLInputElement>(null)
 
   useEffect(() => { loadSettings().then((x) => { setS(x); setLoaded(true) }) }, [])
@@ -130,6 +136,7 @@ export default function SettingsScreen() {
             try { const c = await importAll(await f.text()); flash(`Imported ${c.projects} projects, ${c.photos} photos`) } catch (err) { flash((err as Error).message) }
           }} />
         </div>
+        {storage && <p className="text-xs text-slate-500">Storage: {storage}.</p>}
         {msg && <p className={`text-sm font-semibold ${/fail|error|set |choose|no text|not /i.test(msg) ? 'text-red-600' : 'text-green-600'}`} role="status">{msg}</p>}
       </section>
     </div>

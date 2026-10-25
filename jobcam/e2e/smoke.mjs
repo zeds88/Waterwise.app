@@ -26,6 +26,33 @@ try {
   await page.getByText('No projects yet').waitFor()
   await shot('01-empty')
 
+  // ───── uploads from a phone-like library: rotated JPEG, HEVC .mov, unreadable HEIC ─────
+  const dialogs = []
+  page.on('dialog', (d) => dialogs.push(d.message()))
+  await page.getByRole('button', { name: 'New' }).click()
+  await page.getByPlaceholder('Johnson – sprinkler repair').fill('Upload check')
+  await page.getByRole('button', { name: 'Save' }).click()
+  await page.getByLabel('Upload photos or videos').waitFor({ state: 'attached' })
+  const chooser = page.waitForEvent('filechooser')
+  await page.getByText('Upload', { exact: true }).click() // the visible button, as a user would
+  await (await chooser).setFiles(['e2e/fixtures/iphone-rotated.jpg', 'e2e/fixtures/iphone-hevc.mov', 'e2e/fixtures/photo.heic'])
+  await page.waitForFunction(() => document.querySelectorAll('.grid button[aria-label]').length === 2, null, { timeout: 30000 })
+  await page.waitForFunction(() => !document.body.innerText.includes('Importing'))
+  assert.equal(dialogs.length, 1)
+  assert.match(dialogs[0], /2 of 3 imported/)
+  assert.match(dialogs[0], /photo\.heic.*HEIC photo.*Most Compatible/s, 'explains why the HEIC failed and what to do')
+  const stored = await page.evaluate(() => new Promise((res) => { const r = indexedDB.open('jobcam'); r.onsuccess = () => { const g = r.result.transaction('photos').objectStore('photos').getAll(); g.onsuccess = () => res(g.result.map((x) => ({ kind: x.kind ?? 'photo', w: x.width, h: x.height, thumb: x.thumb.size }))) } }))
+  const jpg = stored.find((x) => x.kind === 'photo'), mov = stored.find((x) => x.kind === 'video')
+  assert.deepEqual([jpg.w, jpg.h], [40, 60], 'EXIF rotation applied: 60x40 landscape stored as 40x60 portrait')
+  assert.ok(mov && mov.thumb > 200, 'a video that cannot be decoded is still saved, with a poster tile')
+  await page.getByRole('button', { name: 'Open video' }).click()
+  await page.getByLabel('Video player').waitFor()
+  await shot('00-uploads')
+  await page.keyboard.press('Escape')
+  page.removeAllListeners('dialog')
+  page.on('dialog', (d) => d.accept())
+  await page.getByRole('link', { name: 'Projects' }).last().click()
+
   // create project
   await page.getByRole('button', { name: 'New' }).click()
   await page.getByPlaceholder('Johnson – sprinkler repair').fill('Johnson – sprinkler repair')
@@ -47,7 +74,7 @@ try {
 
   // back to project → photos present with tags
   await page.getByRole('link', { name: 'Projects' }).last().click()
-  await page.getByText('2 photos').waitFor()
+  await page.getByRole('link', { name: /Johnson – sprinkler repair.*2 photos/ }).waitFor()
   await page.getByText('Johnson – sprinkler repair').click()
   await page.getByRole('button', { name: 'Open photo' }).first().waitFor()
   assert.equal(await page.getByRole('button', { name: 'Open photo' }).count(), 2)
@@ -254,9 +281,9 @@ try {
   const path = await dl.path()
   const { readFileSync } = await import('node:fs')
   const json = JSON.parse(readFileSync(path, 'utf8'))
-  assert.equal(json.data.photos.length, 4)
-  assert.equal(json.data.photos.filter((p) => p.kind === 'video').length, 2)
-  assert.equal(json.data.projects.length, 2)
+  assert.equal(json.data.photos.length, 6)
+  assert.equal(json.data.photos.filter((p) => p.kind === 'video').length, 3)
+  assert.equal(json.data.projects.length, 3)
   await shot('08-settings')
 
   assert.deepEqual(errors, [])
