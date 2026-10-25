@@ -12,9 +12,10 @@ const NUMBER_WORDS: Record<string, number> = {
 }
 
 const ISSUE_RE = /\b(leak\w*|broken|cracked?|damag\w*|clogg\w*|missing|worn|rott\w*|fail\w*|stuck|stuc|burst|low pressure|not working|doesn'?t work|overgrown|mold\w*|rust\w*|bad|loose|sagging)\b/i
-const TASK_RE = /\b(need(?:s)? to|needs?|should|must|have to|replace|install|repair|fix|clean(?:\s+(?:up|out|the|all))|add|remove|adjust|check|inspect|schedule|order|paint|patch|clear(?:\s+(?:the|out)))\b/i
+const TASK_RE = /\b(need(?:s)? to|needs?|needed|required|should|must|have to|replace|install|repair|fix|clean(?:\s+(?:up|out|the|all))|add|remove|adjust|check|inspect|schedule|order|paint|patch|clear(?:\s+(?:the|out)))\b/i
 const STREET = '(?:Street|St|Avenue|Ave|Boulevard|Blvd|Drive|Dr|Lane|Ln|Road|Rd|Way|Court|Ct|Circle|Cir|Place|Pl|Parkway|Pkwy|Trail|Trl)'
 
+const LABEL = /^(zone|station|number|no|#)$/i
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 function splitSentences(text: string): string[] {
@@ -39,7 +40,7 @@ export function quantityNear(sentence: string, keyword: string): number {
   for (let i = words.length - 1; i >= 0; i--) {
     const n = toNumber(words[i].replace(/[^\w]/g, ''))
     // "zone 4 valve" / "station 7" label a thing; they are not a count
-    if (n !== null && n > 0 && !/^(zone|station|number|no|#)$/i.test(words[i - 1] ?? '')) return n
+    if (n !== null && n > 0 && !LABEL.test(words[i - 1] ?? '')) return n
   }
   return 1
 }
@@ -52,6 +53,26 @@ function cleanTask(s: string): string {
     .replace(/[.!?]+$/, '')
     .trim()
   return t.charAt(0).toUpperCase() + t.slice(1)
+}
+
+/**
+ * Find a price-book keyword in a sentence and its quantity. Besides an exact phrase, a count may
+ * sit inside it: keyword "adjust head" matches "adjust 6 heads" with quantity 6.
+ */
+export function findKeyword(sentence: string, keyword: string): { qty: number } | null {
+  if (sentence.toLowerCase().includes(keyword.toLowerCase())) return { qty: quantityNear(sentence, keyword) }
+  const words = keyword.trim().split(/\s+/)
+  if (words.length < 2) return null
+  const num = `(\\d+|${Object.keys(NUMBER_WORDS).filter((w) => w !== 'a' && w !== 'an').join('|')})`
+  const re = new RegExp(words.map(escapeRe).join(`\\s+(?:${num}\\s+)?`), 'i')
+  const m = re.exec(sentence)
+  if (!m) return null
+  const n = m.slice(1).find(Boolean)
+  if (!n) return { qty: 1 }
+  // "zone 4 valve" / "station 7": a label, not a count
+  const before = m[0].slice(0, m[0].lastIndexOf(n)).trim().split(/\s+/).pop() ?? ''
+  if (LABEL.test(before)) return { qty: 1 }
+  return { qty: toNumber(n) || 1 }
 }
 
 export function parseWalk(text: string, priceBook: PriceBookEntry[] = []): WalkResult {
@@ -72,16 +93,27 @@ export function parseWalk(text: string, priceBook: PriceBookEntry[] = []): WalkR
     const isIssue = ISSUE_RE.test(sentence)
     const isTask = TASK_RE.test(sentence)
 
-    for (const entry of priceBook) {
-      const kw = entry.keywords.find((k) => sentence.toLowerCase().includes(k.toLowerCase()))
-      if (!kw || !(isIssue || isTask)) continue
-      const qty = quantityNear(sentence, kw)
-      const key = entry.description
-      if (seenItems.has(key)) {
-        result.lineItems[seenItems.get(key)!].qty += qty
-      } else {
-        seenItems.set(key, result.lineItems.length)
-        result.lineItems.push({ description: entry.description, qty, unit: entry.unit, unitPrice: entry.price })
+    if (isIssue || isTask) {
+      // each entry's longest keyword found in this sentence
+      const hits = priceBook
+        .map((entry) => {
+          for (const kw of [...entry.keywords].filter(Boolean).sort((x, y) => y.length - x.length)) {
+            const f = findKeyword(sentence, kw)
+            if (f) return { entry, kw, qty: f.qty }
+          }
+          return null
+        })
+        .filter((h): h is { entry: PriceBookEntry; kw: string; qty: number } => h !== null)
+      // most specific wins: "3/4 inch backflow" beats "backflow", "rotor head" beats "head"
+      const specific = hits.filter((h) => !hits.some((o) => o !== h && o.kw.length > h.kw.length && o.kw.toLowerCase().includes(h.kw.toLowerCase())))
+      for (const { entry, qty } of specific) {
+        const key = entry.description
+        if (seenItems.has(key)) {
+          result.lineItems[seenItems.get(key)!].qty += qty
+        } else {
+          seenItems.set(key, result.lineItems.length)
+          result.lineItems.push({ description: entry.description, qty, unit: entry.unit, unitPrice: entry.price })
+        }
       }
     }
 

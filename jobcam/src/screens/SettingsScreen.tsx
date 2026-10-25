@@ -2,6 +2,7 @@ import { Download, Plus, Trash2, Upload } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Field } from '../components/ui'
 import BrandingSettings from '../components/BrandingSettings'
+import PriceBookImport, { downloadCsv } from '../components/PriceBookImport'
 import TemplateEditor from '../components/TemplateEditor'
 import { TRADES } from '../lib/scopeLibrary'
 import type { ScopeTemplate } from '../lib/types'
@@ -23,6 +24,7 @@ export default function SettingsScreen() {
   const [loaded, setLoaded] = useState(false)
   const [msg, setMsg] = useState('')
   const [testing, setTesting] = useState(false)
+  const [importing, setImporting] = useState(false)
   const [editTpl, setEditTpl] = useState<ScopeTemplate | 'new' | null>(null)
   const [storage, setStorage] = useState('')
   useEffect(() => {
@@ -76,7 +78,12 @@ export default function SettingsScreen() {
             <button className="btn btn-ghost !p-2" aria-label="Remove" onClick={() => setS({ ...s, priceBook: s.priceBook.filter((_, n) => n !== i) })}><Trash2 size={16} /></button>
           </div>
         ))}
-        <button className="btn" onClick={() => setS({ ...s, priceBook: [...s.priceBook, { keywords: [], description: 'New item', unit: 'ea', price: 0 }] })}><Plus size={16} /> Add item</button>
+        <div className="flex flex-wrap gap-2">
+          <button className="btn" onClick={() => setS({ ...s, priceBook: [...s.priceBook, { keywords: [], description: 'New item', unit: 'ea', price: 0 }] })}><Plus size={16} /> Add item</button>
+          <button className="btn" onClick={() => setImporting(true)}><Upload size={16} /> Import…</button>
+          <button className="btn" onClick={() => downloadCsv(s.priceBook)}><Download size={16} /> Export CSV</button>
+        </div>
+        {importing && <PriceBookImport current={s.priceBook} onCancel={() => setImporting(false)} onApply={(book) => { setS({ ...s, priceBook: book }); setImporting(false); flash(`Price book now has ${book.length} items`) }} />}
       </section>
 
       <section className="card space-y-3">

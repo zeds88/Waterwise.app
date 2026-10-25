@@ -78,6 +78,12 @@ Multi-user accounts and real-time team sync, a hosted client portal / live share
 native iOS/Android apps (the PWA is the mobile app for now), map view of all projects,
 video trimming, e-signatures, and integrations (QuickBooks, Jobber, Zapier…). See the roadmap.
 
+### Price book
+Settings → *Price book* → **Import…** accepts a pasted list or a `.csv`/`.json` file (`keywords,description,unit,price`,
+several keywords separated by `|`) and can replace or add to your book; **Export CSV** saves it. "Walk the job" prices
+what you say using the most specific keyword match, reads counts like "adjust 6 heads", and treats "zone 4 valve" as one valve.
+Prices are stored only in your browser; ship your own list as a file, never in the repo.
+
 ### Scope templates & branding
 Open a project → **Scope** → *New from template*. Pick a service, fill the blanks (customer and address are
 pre-filled), save, then print a branded **Proposal** from the same tab. Template text is a neutral starting
@@ -125,7 +131,7 @@ e2e/smoke.mjs   Playwright end-to-end test with a fake camera (fixtures in e2e/f
 Stack: React 19 · TypeScript · Vite · Tailwind 3 · IndexedDB · Web Speech API · Service Worker.
 
 ### Testing
-`npm test` runs 89 unit tests (AI request shapes, JSON recovery, WAV/transcripts, speech engines, the fill-in-the-blank engine, a data-lint over every built-in template, branded document escaping, brand-color contrast, and the v1→v2 database upgrade). `npm run build && node e2e/smoke.mjs` drives the real app in
+`npm test` runs 101 unit tests (AI request shapes, JSON recovery, WAV/transcripts, speech engines, the fill-in-the-blank engine, a data-lint over every built-in template, branded document escaping, brand-color contrast, and the v1→v2 database upgrade). `npm run build && node e2e/smoke.mjs` drives the real app in
 headless Chromium (fake camera + GPS): create project → capture → annotate → compare →
 video upload + recording → AI analysis (mocked provider) → AI job review → checklist → estimate →
 report → walk-the-job → search → backup.

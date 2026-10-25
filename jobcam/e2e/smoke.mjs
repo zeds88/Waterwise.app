@@ -347,6 +347,21 @@ try {
   assert.equal(json.data.meta.find((m) => m.key === 'settings').value.branding.license, 'TX-IRR-1234')
   await shot('08-settings')
 
+  // ───── price-book import changes what "walk the job" prices ─────
+  await page.getByRole('link', { name: 'Settings' }).last().click()
+  await page.getByRole('button', { name: /Import…/ }).click()
+  await page.getByLabel('Price list').fill('keywords,description,unit,price\nspray head|sprinkler head,"Replace spray head 4"" (parts + labor)",head,$24.00\nvalve|zone valve,Replace valve,valve,375')
+  await page.getByLabel('Import preview').getByText('Replace valve').waitFor()
+  await page.getByRole('button', { name: 'Import', exact: true }).click()
+  await page.getByText('Price book now has 2 items').waitFor()
+  await page.getByRole('link', { name: 'Walk' }).last().click()
+  await page.getByRole('button', { name: 'Try an example' }).click()
+  await page.getByRole('button', { name: 'Organize' }).click()
+  await page.getByText('3 × Replace spray head 4" (parts + labor)').waitFor()
+  await page.getByText('1 × Replace valve').waitFor() // "Zone 4 valve" is one valve, not four
+  await page.getByText(/Estimate \(\$447\.00\)/).waitFor() // 3 x 24 + 375
+  await shot('15-pricebook-import')
+
   assert.deepEqual(errors, [])
   console.log('E2E PASS')
 } catch (e) {

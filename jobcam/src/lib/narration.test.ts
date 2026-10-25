@@ -42,6 +42,44 @@ describe('parseWalk', () => {
   })
 })
 
+describe('most specific price-book entry wins', () => {
+  const book = [
+    { keywords: ['backflow'], description: 'Backflow 1 in', unit: 'ea', price: 950 },
+    { keywords: ['3/4 inch backflow', '3/4" backflow'], description: 'Backflow 3/4 in', unit: 'ea', price: 875 },
+    { keywords: ['rotor head', 'rotor'], description: 'Rotor head', unit: 'ea', price: 62.5 },
+    { keywords: ['sprinkler head', 'head'], description: 'Spray head', unit: 'ea', price: 24 },
+  ]
+  it('does not double-count overlapping keywords', () => {
+    const r = parseWalk('We need to replace the 3/4 inch backflow. The backflow needs service.', book)
+    expect(r.lineItems.map((l) => [l.description, l.qty])).toEqual([['Backflow 3/4 in', 1], ['Backflow 1 in', 1]])
+    const rotors = parseWalk('Replace two rotor heads.', book)
+    expect(rotors.lineItems.map((l) => l.description)).toEqual(['Rotor head'])
+    expect(rotors.lineItems[0].qty).toBe(2)
+  })
+  it('still matches the general entry when the specific one is absent', () => {
+    expect(parseWalk('Replace three broken heads.', book).lineItems[0]).toMatchObject({ description: 'Spray head', qty: 3 })
+  })
+})
+
+describe('quantities and phrasing', () => {
+  const book = [{ keywords: ['adjust head', 'realign'], description: 'Adjust heads', unit: 'head', price: 10.5 }, { keywords: ['spring startup'], description: 'Spring startup', unit: 'system', price: 105 }]
+  it('reads a count inside the keyword phrase', () => {
+    expect(parseWalk('We should adjust 6 heads.', book).lineItems[0]).toMatchObject({ description: 'Adjust heads', qty: 6 })
+    expect(parseWalk('Need to adjust twelve heads.', book).lineItems[0].qty).toBe(12)
+    expect(parseWalk('Adjust heads in zone 3.', book).lineItems[0].qty).toBe(1)
+  })
+  it('never reads a zone/station label as a count, even inside a multi-word keyword', () => {
+    const valves = [{ keywords: ['zone valve', 'valve'], description: 'Valve', unit: 'ea', price: 375 }]
+    expect(parseWalk('Zone 4 valve is leaking.', valves).lineItems[0].qty).toBe(1)
+    expect(parseWalk('Station 7 valve is stuck.', valves).lineItems[0].qty).toBe(1)
+    expect(parseWalk('Replace 2 zone valves.', valves).lineItems[0].qty).toBe(2)
+  })
+  it('treats "is needed" / "is required" as work to do', () => {
+    expect(parseWalk('Spring startup is needed.', book).lineItems.map((l) => l.description)).toEqual(['Spring startup'])
+    expect(parseWalk('Spring startup is required before April.', book).tasks).toHaveLength(1)
+  })
+})
+
 describe('quantityNear', () => {
   it('reads digits and number words', () => {
     expect(quantityNear('replace 12 sprinkler heads', 'sprinkler head')).toBe(12)
