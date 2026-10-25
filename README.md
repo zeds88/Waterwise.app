@@ -61,3 +61,7 @@ src/
 - The gamification layer from the original spec (badges, points, levels, leaderboards)
   was intentionally omitted per product direction.
 - Payments, SMS, email, and maps are simulated — no external services are called.
+
+---
+
+**Also in this repo:** [`jobcam/`](./jobcam) – a free, open-source, local-first job site photo documentation app (separate package).

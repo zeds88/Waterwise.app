@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html { -webkit-tap-highlight-color: transparent; }
+body { @apply bg-slate-100 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100; }
+
+@layer components {
+  .card { @apply rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900; }
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition active:scale-95 disabled:opacity-50 bg-slate-200 text-slate-900 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700; }
+  .btn-primary { @apply bg-blue-600 text-white hover:bg-blue-500 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-500; }
+  .btn-danger { @apply bg-red-600 text-white hover:bg-red-500 dark:bg-red-600 dark:hover:bg-red-500; }
+  .btn-ghost { @apply bg-transparent hover:bg-slate-200 dark:bg-transparent dark:hover:bg-slate-800; }
+  .input { @apply w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 dark:border-slate-700 dark:bg-slate-900; }
+  .label { @apply mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500; }
+  .chip { @apply inline-flex items-center rounded-full border border-slate-300 px-3 py-1 text-xs font-medium dark:border-slate-700; }
+  .chip-on { @apply border-blue-600 bg-blue-600 text-white; }
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
+.safe-b { padding-bottom: max(env(safe-area-inset-bottom), 0px); }
