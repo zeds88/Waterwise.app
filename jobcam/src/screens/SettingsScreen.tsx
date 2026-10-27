@@ -7,6 +7,7 @@ import TemplateEditor from '../components/TemplateEditor'
 import { TRADES } from '../lib/scopeLibrary'
 import type { ScopeTemplate } from '../lib/types'
 import { exportAll, importAll } from '../lib/backup'
+import { diagnose, type Check } from '../lib/diagnose'
 import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '../lib/db'
 import { callModel } from '../lib/ai'
 import { LOCAL_MODELS } from '../lib/transcribe'
@@ -27,6 +28,7 @@ export default function SettingsScreen() {
   const [importing, setImporting] = useState(false)
   const [editTpl, setEditTpl] = useState<ScopeTemplate | 'new' | null>(null)
   const [storage, setStorage] = useState('')
+  const [checks, setChecks] = useState<Check[] | null>(null)
   useEffect(() => {
     navigator.storage?.estimate?.().then((e) => {
       if (e.usage !== undefined && e.quota) setStorage(`${(e.usage / 1048576).toFixed(0)} MB used of about ${(e.quota / 1048576).toFixed(0)} MB available on this device`)
@@ -164,6 +166,12 @@ export default function SettingsScreen() {
         </div>
         {storage && <p className="text-xs text-slate-500">Storage: {storage}.</p>}
         {msg && <p className={`text-sm font-semibold ${/fail|error|set |choose|no text|not /i.test(msg) ? 'text-red-600' : 'text-green-600'}`} role="status">{msg}</p>}
+      </section>
+      <section className="card space-y-3">
+        <h2 className="font-bold">Troubleshooting</h2>
+        <p className="text-sm text-slate-500">Photos or videos not importing? Run the self-test — it shows exactly what this device can’t do. Build {__BUILD__}.</p>
+        <button className="btn" onClick={async () => { setChecks(null); setChecks(await diagnose()) }}>Run self-test</button>
+        {checks && <ul className="space-y-1 text-sm" role="status">{checks.map((c) => <li key={c.name} className={c.ok ? 'text-green-700' : 'font-semibold text-red-600'}>{c.ok ? '✓' : '✗'} {c.name}: {c.detail}</li>)}</ul>}
       </section>
     </div>
   )
