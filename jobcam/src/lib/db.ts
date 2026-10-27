@@ -15,7 +15,7 @@ const BY_PROJECT: StoreName[] = ['photos', 'checklists', 'comments', 'estimates'
 let dbPromise: Promise<IDBDatabase> | null = null
 
 export function openDb(): Promise<IDBDatabase> {
-  dbPromise ??= new Promise((resolve, reject) => {
+  const opening: Promise<IDBDatabase> = dbPromise ?? new Promise<IDBDatabase>((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION)
     req.onupgradeneeded = () => {
       const db = req.result
@@ -26,10 +26,18 @@ export function openDb(): Promise<IDBDatabase> {
         if (BY_PROJECT.includes(name) && !store.indexNames.contains('projectId')) store.createIndex('projectId', 'projectId')
       }
     }
-    req.onsuccess = () => resolve(req.result)
-    req.onerror = () => reject(req.error)
-  })
-  return dbPromise
+    req.onsuccess = () => {
+      const db = req.result
+      // let a newer version upgrade instead of being blocked by this tab
+      db.onversionchange = () => { db.close(); dbPromise = null }
+      resolve(db)
+    }
+    req.onerror = () => reject(req.error ?? new Error('Could not open local storage'))
+    // another (older) tab still has the database open: say so instead of hanging forever
+    req.onblocked = () => reject(new Error('JobCam is open in another tab or window. Close the other JobCam tabs, then reload.'))
+  }).catch((e) => { dbPromise = null; throw e })
+  dbPromise = opening
+  return opening
 }
 
 /** Test helper: drop the cached connection and database. */
